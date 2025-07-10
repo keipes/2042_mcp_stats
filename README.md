@@ -1,231 +1,421 @@
-# MCP Stats - Battlefield 2042 Weapons Database
+# Battlefield 2042 Weapon Statistics Library
 
-A Rust library and binary for querying Battlefield 2042 weapons statistics with Model Context Protocol (MCP) Tool integration.
+A Rust library and CLI tool for querying Battlefield 2042 weapon statistics stored in a PostgreSQL database.
 
 ## Overview
 
 This project provides:
 
-- **Rust Library**: Methods for querying weapons data via SQLx with MCP Tool definitions
-- **Binary**: Database schema application and data population for PostgreSQL
-- **Data Source**: Battlefield 2042 weapons statistics from `weapons.json`
+- A thread-safe Rust library for querying weapon statistics
+- Streaming query results for efficient data processing
+- Database management utilities for schema migration and data population
+- A CLI tool for database initialization and management
 
-## Features
+## Architecture
 
-### Library (`lib.rs`)
+### Database
 
-- `WeaponsDb` struct that encapsulates database connection and operations
-- Thread-safe design - `WeaponsDb` implements `Clone` and can be shared across async tasks
-- SQLx-based database querying methods on the main struct
-- Synchronous methods returning lazy async streams - no `.await` needed on method calls
-- MCP Tool definitions for external integration
-- Database population methods from JSON source data
-- Custom error types for robust error handling
-- Builder pattern for connection configuration
+- **Database**: PostgreSQL (containerized)
+- **Schema**: Normalized weapon statistics with performance indexes
+- **Data Source**: `weapons.json` containing weapon configurations and damage dropoffs
+- **Migration Strategy**: Drop and recreate database on schema/data changes
 
-### Binary (`main.rs`)
+### Library Structure
 
-- PostgreSQL schema application
-- Database population from `weapons.json`
-- Connection parameter CLI arguments (`--host`, `--port`, `--user`, `--password`, `--database`)
-- Database recreation on schema/data changes
-
-## Database Schema
-
-The database consists of 7 normalized tables:
-
-- `categories` - Weapon categories (Sidearms, Assault Rifles, etc.)
-- `weapons` - Individual weapons with category relationships
-- `barrels` - Barrel types and modifications
-- `ammo_types` - Ammunition types and variants
-- `weapon_ammo_stats` - Magazine size, reload times, headshot multipliers per weapon/ammo combination
-- `configurations` - Weapon/barrel/ammo combinations with velocity and RPM stats
-- `config_dropoffs` - Damage values at different ranges for each configuration
-
-## Data Structure
-
-Source data in `weapons.json` contains:
-
-- Weapon categories with nested weapons
-- Per-weapon statistics by barrel type and ammo type
-- Damage dropoff curves by range
-- Ammo-specific stats (magazine size, reload times, headshot multipliers)
-- RPM data (single, burst, auto) and velocity
-
-## MCP Tool Definitions
-
-The library exposes weapons database queries as MCP tools for external integration:
-
-- Get weapons by category
-- Get weapon configurations and stats
-- Get damage dropoff data
-- Query optimal configurations by criteria
+- **Client**: Thread-safe connection pool with streaming query methods
+- **Database Management**: Schema creation and data population from JSON
+- **Error Handling**: Custom error types for connection failures and query errors
+- **Async**: Built on `sqlx` for async database operations
 
 ## Dependencies
 
-- **SQLx**: Database operations, migrations, and SQL injection protection
-- **Tokio**: Async runtime
-- **Serde**: JSON serialization/deserialization
-- **Clap**: CLI argument parsing
-- **Futures**: For Stream trait and async utilities
-- **Tokio-stream**: Stream utilities and adapters
-- **Axum**: For web server streaming examples (optional)
+```toml
+[dependencies]
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "decimal"] }
+tokio = { version = "1.42", features = ["full"] }
+tokio-stream = "0.1"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "2.0"
+clap = { version = "4.5", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dotenvy = "0.15"
+rust_decimal = { version = "1.36", features = ["serde"] }
+ordered-float = "4.3"
 
-## Database Requirements
-
-- PostgreSQL (recommend using Docker: `postgres:latest`)
-- Connection parameters configurable via CLI arguments
-- Automatic schema recreation on changes
-
-## Security
-
-### SQL Injection Protection
-
-- **Parameterized Queries**: All database queries use SQLx parameterized queries (`$1`, `$2`, etc.)
-- **Compile-time Validation**: SQLx `query!` and `query_as!` macros validate queries at compile time
-- **Type Safety**: Parameters are strongly typed, preventing injection through type confusion
-- **No String Concatenation**: User input never directly concatenated into SQL strings
-
-```rust
-// Safe - parameterized query
-let weapons = sqlx::query_as!(
-    Weapon,
-    "SELECT * FROM weapons w JOIN categories c ON w.category_id = c.category_id WHERE c.category_name = $1",
-    category  // This parameter is safely escaped
-).fetch(&self.pool);
-
-// Dangerous - never done in this library
-let query = format!("SELECT * FROM weapons WHERE name = '{}'", user_input); // ❌ NEVER
+[dev-dependencies]
+testcontainers = "0.23"
+tokio-test = "0.4"
+criterion = "0.6"
+proptest = "1.6"
 ```
 
-### Input Validation
+## Environment Variables
 
-- Category names, weapon names, and numeric parameters validated against expected formats
-- Database schema constraints provide additional validation layer
-- Custom error types for malformed input rejection
+The library reads database connection parameters from environment variables:
+
+```env
+DATABASE_URL=postgresql://username:password@localhost:5432/bf2042_stats
+# Or individual components:
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=username
+POSTGRES_PASSWORD=password
+POSTGRES_DB=bf2042_stats
+```
+
+## Library Usage
+
+### Client Initialization
+
+```rust
+use bf2042_stats::{StatsClient, StatsError};
+
+#[tokio::main]
+async fn main() -> Result<(), StatsError> {
+    // Initialize the client with connection pool
+    let client = StatsClient::new().await?;
+
+    // Use client for queries...
+
+    Ok(())
+}
+```
+
+### Streaming Queries
+
+```rust
+use futures_util::StreamExt;
+
+// Get all weapons in a category (returns immediately, executes when consumed)
+let mut weapon_stream = client.weapons_by_category("Assault Rifles").await?;
+
+while let Some(weapon) = weapon_stream.next().await {
+    let weapon = weapon?;
+    println!("Weapon: {} (ID: {})", weapon.name, weapon.id);
+}
+```
+
+### Query Methods
+
+#### Basic Queries
+
+```rust
+// Stream weapons by category
+client.weapons_by_category(category: &str) -> impl Stream<Item = Result<Weapon, StatsError>>
+
+// Stream weapon configurations with damage dropoffs
+client.weapon_configs(weapon_name: &str) -> impl Stream<Item = Result<WeaponConfig, StatsError>>
+
+// Stream ammo statistics for weapon
+client.weapon_ammo_stats(weapon_name: &str) -> impl Stream<Item = Result<AmmoStats, StatsError>>
+```
+
+#### Analytical Queries
+
+```rust
+// Find optimal configs for specific engagement scenarios
+client.optimal_configs_for_range(
+    filters: &ConfigFilters,
+    range: i16,
+    sort_by: SortCriteria,
+    limit: Option<i32>
+) -> impl Stream<Item = Result<OptimalConfig, StatsError>>
+
+// Compare weapons across multiple metrics
+client.weapon_comparison(
+    weapon_names: &[&str],
+    metrics: &[ComparisonMetric],
+    ranges: &[i16]
+) -> impl Stream<Item = Result<WeaponComparison, StatsError>>
+
+// Time-to-kill analysis at various ranges
+client.ttk_analysis(
+    filters: &ConfigFilters,
+    target_health: f64,
+    ranges: &[i16]
+) -> impl Stream<Item = Result<TtkAnalysis, StatsError>>
+
+// Damage efficiency ranking (damage per shot vs rate of fire trade-offs)
+client.damage_efficiency_ranking(
+    category: Option<&str>,
+    range: i16,
+    weight_damage: f64,
+    weight_rpm: f64
+) -> impl Stream<Item = Result<EfficiencyRanking, StatsError>>
+
+// Statistical aggregations across categories
+client.category_statistics(
+    metrics: &[StatMetric]
+) -> impl Stream<Item = Result<CategoryStats, StatsError>>
+```
+
+#### Query Builder Pattern
+
+```rust
+// Flexible query builder for complex scenarios
+let results = client
+    .query_builder()
+    .category("Assault Rifles")
+    .min_damage_at_range(25.0, 50)
+    .max_reload_time(2.5)
+    .sort_by(SortBy::DamageDesc)
+    .limit(10)
+    .execute()
+    .await?;
+```
+
+### Database Management
+
+```rust
+use bf2042_stats::database::{DatabaseManager, Migration};
+
+let db_manager = DatabaseManager::new().await?;
+
+// Drop existing data and recreate schema
+db_manager.reset_database().await?;
+
+// Populate from weapons.json
+db_manager.populate_from_json("weapons.json").await?;
+```
 
 ## Error Handling
 
-Custom error types for:
-
-- Database connection failures
-- Schema application errors
-- Data parsing and validation errors
-- MCP tool execution errors
-
-## Usage
-
-### As Library
+Custom error types provide clear error categorization:
 
 ```rust
-use mcp_stats::WeaponsDb;
-use futures::StreamExt;
+#[derive(thiserror::Error, Debug)]
+pub enum StatsError {
+    #[error("Database connection failed: {0}")]
+    ConnectionFailed(#[from] sqlx::Error),
 
-// Initialize database connection and populate
-let db = WeaponsDb::connect(host, port, user, password, database).await?;
-db.populate_from_json("weapons.json").await?;
+    #[error("Query execution failed: {0}")]
+    QueryFailed(String),
 
-// Methods are synchronous - return streams immediately (lazy evaluation)
-let weapons_stream = db.weapons_by_category("Assault Rifles");
-let weapons: Vec<_> = weapons_stream.try_collect().await?;
+    #[error("Data parsing error: {0}")]
+    ParseError(#[from] serde_json::Error),
 
-// Process results as they arrive (memory efficient)
-let mut dropoff_stream = db.weapon_dropoffs("AK-24");
-while let Some(dropoff) = dropoff_stream.try_next().await? {
-    println!("Range: {}, Damage: {}", dropoff.range, dropoff.damage);
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
 }
-
-// Chain operations fluently without intermediate awaits
-let high_velocity_configs: Vec<_> = db.all_configurations()
-    .try_filter(|config| futures::future::ready(config.velocity > 800))
-    .try_collect()
-    .await?;
-
-// Get first match only
-let best_weapon = db.best_configs_at_range("Assault Rifles", 100)
-    .try_next()
-    .await?;
-
-// Compose multiple streams
-let combined_weapons = db.weapons_by_category("Assault Rifles")
-    .chain(db.weapons_by_category("SMG"))
-    .try_collect()
-    .await?;
-
-// Thread-safe: can be cloned and shared across async tasks
-let db_clone = db.clone();
-tokio::spawn(async move {
-    let results: Vec<_> = db_clone.weapons_by_category("Sidearms")
-        .try_collect()
-        .await?;
-    // Process results...
-});
 ```
 
-### Web Server Integration
+## CLI Tool
 
-```rust
-use axum::{response::sse::{Event, Sse}, routing::get, Router};
-use futures::StreamExt;
-use tokio_stream::wrappers::ReceiverStream;
+The binary provides database management commands and analytical queries:
 
-// Streaming JSON responses without blocking threads
-async fn stream_weapons(
-    Path(category): Path<String>,
-    State(db): State<WeaponsDb>,
-) -> impl IntoResponse {
-    let stream = db.weapons_by_category(&category)
-        .map(|result| match result {
-            Ok(weapon) => Ok(Event::default().json_data(&weapon).unwrap()),
-            Err(e) => Err(axum::Error::new(e)),
-        });
-
-    Sse::new(stream)
-}
-
-// Or for regular JSON streaming
-async fn stream_weapons_json(
-    Path(category): Path<String>,
-    State(db): State<WeaponsDb>,
-) -> Response {
-    let stream = db.weapons_by_category(&category)
-        .map(|result| {
-            result
-                .map(|weapon| serde_json::to_vec(&weapon).unwrap())
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-        });
-
-    StreamBody::new(stream).into_response()
-}
-
-// Server setup - each request gets its own stream without blocking
-let app = Router::new()
-    .route("/weapons/:category/stream", get(stream_weapons))
-    .route("/weapons/:category", get(stream_weapons_json))
-    .with_state(db);
-```
-
-### Real-time Processing Benefits
-
-- **No Thread Blocking**: Each request stream yields control back to the runtime
-- **Memory Efficient**: Results streamed as they're produced, not buffered
-- **Backpressure**: Client consumption speed naturally controls database query rate
-- **Cancellation**: If client disconnects, stream automatically stops querying
-- **Concurrent Requests**: Thousands of concurrent streaming requests possible
-
-### As Binary
+### Installation
 
 ```bash
-# Apply schema and populate data
-./mcp_stats --host localhost --port 5432 --user postgres --password secret --database bf2042
+cargo install --path .
 ```
 
-- [x] Project definition and README
-- [ ] Database schema implementation
-- [ ] SQLx migrations
-- [ ] JSON data parsing and population
-- [ ] Core query methods
-- [ ] MCP Tool definitions
-- [ ] CLI binary implementation
-- [ ] Error type definitions
-- [ ] Testing and documentation
+### Database Management
+
+```bash
+# Initialize database with schema and data
+bf2042-stats init
+
+# Clear all data
+bf2042-stats clear
+
+# Apply schema only
+bf2042-stats schema
+
+# Populate data from JSON
+bf2042-stats populate [--file weapons.json]
+
+# Show database status
+bf2042-stats status
+```
+
+### Analytical Commands
+
+```bash
+# Find best weapons for specific scenarios
+bf2042-stats analyze best-at-range --category "Assault Rifles" --range 100 --limit 5
+
+# Compare specific weapons
+bf2042-stats compare --weapons "AK-24,M5A3,SFAR-M GL" --ranges "50,100,150"
+
+# Time-to-kill analysis
+bf2042-stats ttk --category "SMGs" --health 100 --ranges "10,25,50"
+
+# Category statistics
+bf2042-stats stats --category "Sniper Rifles" --metrics "damage,velocity,rpm"
+
+# Export analysis results
+bf2042-stats analyze damage-efficiency --output results.csv --format csv
+```
+
+### Query Examples
+
+```bash
+# Find highest DPS weapons at 75m
+bf2042-stats query "
+  SELECT w.weapon_name, c.config_id, calculated_dps
+  FROM weapons_dps_at_range(75)
+  WHERE category_name = 'LMGs'
+  ORDER BY calculated_dps DESC
+  LIMIT 5"
+
+# Complex meta-analysis
+bf2042-stats analyze meta --engagement-ranges "25,50,100" --weight-ttk 0.4 --weight-handling 0.3 --weight-range 0.3
+```
+
+### CLI Examples
+
+```bash
+# Complete database setup
+bf2042-stats init
+
+# Reset and repopulate
+bf2042-stats clear && bf2042-stats schema && bf2042-stats populate
+
+# Find meta weapons for competitive play
+bf2042-stats analyze meta --ranges "50,100" --ttk-weight 0.5 --handling-weight 0.3 --versatility-weight 0.2
+
+# Export weapon comparison data
+bf2042-stats compare --weapons "all" --category "Assault Rifles" --output comparison.json
+```
+
+## Advanced Features
+
+### Complex Query Support
+
+The library supports sophisticated analytical queries through:
+
+#### Computed Metrics
+
+- **Time-to-Kill (TTK)**: Calculated based on damage, RPM, and target health
+- **Damage Per Second (DPS)**: Real-world DPS accounting for reload times
+- **Effective Range**: Optimal engagement distances for each configuration
+- **Versatility Score**: Multi-range performance rating
+- **Meta Rating**: Weighted scoring across multiple engagement scenarios
+
+#### Query Optimization
+
+- **View Materialization**: Pre-computed common analytical queries
+- **Query Caching**: Intelligent caching of expensive calculations
+- **Parallel Execution**: Multi-threaded analysis for large datasets
+- **Incremental Updates**: Efficient recalculation when data changes
+
+#### Statistical Functions
+
+```rust
+// Built-in statistical analysis
+client.statistical_summary(
+    query: &AnalyticalQuery,
+    grouping: GroupBy
+) -> Result<StatisticalSummary, StatsError>
+
+// Correlation analysis between weapon attributes
+client.attribute_correlation(
+    attributes: &[WeaponAttribute],
+    filters: &ConfigFilters
+) -> Result<CorrelationMatrix, StatsError>
+
+// Meta analysis across engagement scenarios
+client.meta_analysis(
+    scenarios: &[EngagementScenario],
+    weights: &ScenarioWeights
+) -> Result<MetaRanking, StatsError>
+```
+
+## Data Schema
+
+The database normalizes weapon data into the following tables:
+
+- `categories` - Weapon categories (Assault Rifles, SMGs, etc.)
+- `weapons` - Individual weapons with category relationships
+- `barrels` - Barrel attachments
+- `ammo_types` - Ammunition types
+- `weapon_ammo_stats` - Magazine size, reload times, headshot multipliers
+- `configurations` - Weapon/barrel/ammo combinations with RPM and velocity
+- `config_dropoffs` - Damage values at different ranges
+
+### Analytical Views and Functions
+
+For complex queries, the schema includes materialized views and stored functions:
+
+```sql
+-- Pre-computed DPS at common ranges
+CREATE MATERIALIZED VIEW weapons_dps_analysis AS
+SELECT
+    c.config_id,
+    w.weapon_name,
+    cat.category_name,
+    calculate_dps_at_range(c.config_id, 25) as dps_25m,
+    calculate_dps_at_range(c.config_id, 50) as dps_50m,
+    calculate_dps_at_range(c.config_id, 100) as dps_100m,
+    calculate_ttk_at_range(c.config_id, 100, 25) as ttk_25m_100hp,
+    calculate_versatility_score(c.config_id) as versatility_score
+FROM configurations c
+JOIN weapons w ON c.weapon_id = w.weapon_id
+JOIN categories cat ON w.category_id = cat.category_id;
+
+-- Statistical functions for analysis
+CREATE OR REPLACE FUNCTION calculate_meta_score(
+    config_id INTEGER,
+    scenario_weights DECIMAL[]
+) RETURNS DECIMAL AS $$
+-- Complex meta-analysis calculation
+$$;
+```
+
+See `SCHEMA.md` for detailed schema definition and example queries.
+
+## Development
+
+### Running with Docker
+
+```bash
+# Start PostgreSQL container
+docker run --name bf2042-postgres \
+  -e POSTGRES_DB=bf2042_stats \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=password \
+  -p 5432:5432 \
+  -d postgres:16
+
+# Set environment variables
+export DATABASE_URL=postgresql://postgres:password@localhost:5432/bf2042_stats
+
+# Initialize database
+cargo run --bin bf2042-stats init
+```
+
+### Testing
+
+```bash
+# Run unit tests
+cargo test
+
+# Run integration tests (requires Docker)
+cargo test --features integration-tests
+```
+
+## Performance
+
+- **Connection Pooling**: Shared `sqlx::PgPool` for efficient connection reuse
+- **Streaming**: Query results stream without loading full datasets into memory
+- **Indexes**: Optimized database indexes for common query patterns
+- **Async**: Non-blocking database operations with Tokio runtime
+- **Query Optimization**: Materialized views for expensive analytical calculations
+- **Parallel Processing**: Multi-threaded analysis for large computational workloads
+- **Caching**: Intelligent caching of computed metrics and statistical results
+- **Batch Operations**: Efficient bulk processing for complex analyses
+
+## Thread Safety
+
+The `StatsClient` is designed to be shared across threads:
+
+- Uses `Arc<PgPool>` internally for thread-safe connection sharing
+- All query methods are `async` and `Send + Sync`
+- No mutable state in the client itself
