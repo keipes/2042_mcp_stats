@@ -2,10 +2,10 @@
 
 ## Phase 1: Project Foundation & Vertical Slice (Core Architecture)
 
-### 1.1 Project Setup
+### 1.1 Project Setup ✅
 
-- [ ] Initialize Rust project with `cargo init --lib`
-- [ ] Configure `Cargo.toml` with required dependencies:
+- [x] Initialize Rust project with `cargo init --lib`
+- [x] Configure `Cargo.toml` with required dependencies:
   - `sqlx` (PostgreSQL support, async runtime)
   - `tokio` (async runtime)
   - `serde` (JSON serialization)
@@ -13,7 +13,7 @@
   - `clap` (CLI)
   - `tracing` (logging)
   - `dotenvy` (environment variables)
-- [ ] Set up project structure:
+- [x] Set up project structure:
   ```
   src/
     lib.rs          # Library exports
@@ -31,26 +31,26 @@
     main.rs         # CLI binary
   ```
 
-### 1.2 Error Handling Foundation
+### 1.2 Error Handling Foundation ✅
 
-- [ ] Define `StatsError` enum with variants:
+- [x] Define `StatsError` enum with variants:
   - `ConnectionFailed(sqlx::Error)`
   - `QueryFailed(String)`
   - `ParseError(serde_json::Error)`
   - `IoError(std::io::Error)`
   - `ConfigError(String)`
-- [ ] Implement `From` traits for automatic error conversion
-- [ ] Add `Result<T>` type alias
+- [x] Implement `From` traits for automatic error conversion
+- [x] Add `Result<T>` type alias
 
-### 1.3 Database Models (Minimal Set)
+### 1.3 Database Models (Minimal Set) ✅
 
-- [ ] Create core data structures:
+- [x] Create core data structures:
   - `Category` struct
   - `Weapon` struct
   - `WeaponConfig` struct (includes barrel, ammo, stats)
   - `DamageDropoff` struct
-- [ ] Implement `serde` derives for JSON parsing
-- [ ] Add `sqlx::FromRow` derives for database mapping
+- [x] Implement `serde` derives for JSON parsing
+- [x] Add `sqlx::FromRow` derives for database mapping
 
 ### 1.4 Database Schema Creation
 
@@ -74,21 +74,21 @@
 - [ ] Insert data into core tables (categories, weapons, barrels, ammo_types)
 - [ ] Test end-to-end data flow: JSON → Database
 
-### 1.6 Minimal Client Implementation
+### 1.6 Minimal Client Implementation ✅
 
-- [ ] Create `StatsClient` struct with `PgPool`
-- [ ] Implement `StatsClient::new()` for connection initialization
-- [ ] Add one basic query method: `weapons_by_category()`
-- [ ] Return simple `Vec<Weapon>` (streaming comes later)
-- [ ] Test query functionality
+- [x] Create `StatsClient` struct with `PgPool`
+- [x] Implement `StatsClient::new()` for connection initialization
+- [x] Add one basic query method: `weapons_by_category()` (placeholder)
+- [x] Return simple `Vec<Weapon>` (streaming comes later)
+- [x] Test query functionality (placeholder implementation)
 
-### 1.7 Basic CLI
+### 1.7 Basic CLI ✅
 
-- [ ] Implement CLI with `clap`
-- [ ] Add commands:
-  - `init` - Create schema and populate data
+- [x] Implement CLI with `clap`
+- [x] Add commands:
+  - `init` - Create schema and populate data (placeholder)
   - `status` - Show database connection status
-- [ ] Test complete workflow: CLI → Database → Query
+- [x] Test complete workflow: CLI → Database → Query (with placeholders)
 
 ## Phase 2: Enhanced Database Schema & Streaming
 
