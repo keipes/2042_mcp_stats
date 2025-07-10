@@ -63,7 +63,7 @@ The library exposes weapons database queries as MCP tools for external integrati
 
 ## Dependencies
 
-- **SQLx**: Database operations and migrations
+- **SQLx**: Database operations, migrations, and SQL injection protection
 - **Tokio**: Async runtime
 - **Serde**: JSON serialization/deserialization
 - **Clap**: CLI argument parsing
@@ -76,6 +76,33 @@ The library exposes weapons database queries as MCP tools for external integrati
 - PostgreSQL (recommend using Docker: `postgres:latest`)
 - Connection parameters configurable via CLI arguments
 - Automatic schema recreation on changes
+
+## Security
+
+### SQL Injection Protection
+
+- **Parameterized Queries**: All database queries use SQLx parameterized queries (`$1`, `$2`, etc.)
+- **Compile-time Validation**: SQLx `query!` and `query_as!` macros validate queries at compile time
+- **Type Safety**: Parameters are strongly typed, preventing injection through type confusion
+- **No String Concatenation**: User input never directly concatenated into SQL strings
+
+```rust
+// Safe - parameterized query
+let weapons = sqlx::query_as!(
+    Weapon,
+    "SELECT * FROM weapons w JOIN categories c ON w.category_id = c.category_id WHERE c.category_name = $1",
+    category  // This parameter is safely escaped
+).fetch(&self.pool);
+
+// Dangerous - never done in this library
+let query = format!("SELECT * FROM weapons WHERE name = '{}'", user_input); // ❌ NEVER
+```
+
+### Input Validation
+
+- Category names, weapon names, and numeric parameters validated against expected formats
+- Database schema constraints provide additional validation layer
+- Custom error types for malformed input rejection
 
 ## Error Handling
 
