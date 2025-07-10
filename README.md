@@ -117,60 +117,6 @@ client.weapon_configs(weapon_name: &str) -> impl Stream<Item = Result<WeaponConf
 client.weapon_ammo_stats(weapon_name: &str) -> impl Stream<Item = Result<AmmoStats, StatsError>>
 ```
 
-#### Analytical Queries
-
-```rust
-// Find optimal configs for specific engagement scenarios
-client.optimal_configs_for_range(
-    filters: &ConfigFilters,
-    range: i16,
-    sort_by: SortCriteria,
-    limit: Option<i32>
-) -> impl Stream<Item = Result<OptimalConfig, StatsError>>
-
-// Compare weapons across multiple metrics
-client.weapon_comparison(
-    weapon_names: &[&str],
-    metrics: &[ComparisonMetric],
-    ranges: &[i16]
-) -> impl Stream<Item = Result<WeaponComparison, StatsError>>
-
-// Time-to-kill analysis at various ranges
-client.ttk_analysis(
-    filters: &ConfigFilters,
-    target_health: f64,
-    ranges: &[i16]
-) -> impl Stream<Item = Result<TtkAnalysis, StatsError>>
-
-// Damage efficiency ranking (damage per shot vs rate of fire trade-offs)
-client.damage_efficiency_ranking(
-    category: Option<&str>,
-    range: i16,
-    weight_damage: f64,
-    weight_rpm: f64
-) -> impl Stream<Item = Result<EfficiencyRanking, StatsError>>
-
-// Statistical aggregations across categories
-client.category_statistics(
-    metrics: &[StatMetric]
-) -> impl Stream<Item = Result<CategoryStats, StatsError>>
-```
-
-#### Query Builder Pattern
-
-```rust
-// Flexible query builder for complex scenarios
-let results = client
-    .query_builder()
-    .category("Assault Rifles")
-    .min_damage_at_range(25.0, 50)
-    .max_reload_time(2.5)
-    .sort_by(SortBy::DamageDesc)
-    .limit(10)
-    .execute()
-    .await?;
-```
-
 ### Database Management
 
 ```rust
@@ -260,35 +206,6 @@ The database normalizes weapon data into the following tables:
 - `configurations` - Weapon/barrel/ammo combinations with RPM and velocity
 - `config_dropoffs` - Damage values at different ranges
 
-### Analytical Views and Functions
-
-For complex queries, the schema includes materialized views and stored functions:
-
-```sql
--- Pre-computed DPS at common ranges
-CREATE MATERIALIZED VIEW weapons_dps_analysis AS
-SELECT
-    c.config_id,
-    w.weapon_name,
-    cat.category_name,
-    calculate_dps_at_range(c.config_id, 25) as dps_25m,
-    calculate_dps_at_range(c.config_id, 50) as dps_50m,
-    calculate_dps_at_range(c.config_id, 100) as dps_100m,
-    calculate_ttk_at_range(c.config_id, 100, 25) as ttk_25m_100hp,
-    calculate_versatility_score(c.config_id) as versatility_score
-FROM configurations c
-JOIN weapons w ON c.weapon_id = w.weapon_id
-JOIN categories cat ON w.category_id = cat.category_id;
-
--- Statistical functions for analysis
-CREATE OR REPLACE FUNCTION calculate_meta_score(
-    config_id INTEGER,
-    scenario_weights DECIMAL[]
-) RETURNS DECIMAL AS $$
--- Complex meta-analysis calculation
-$$;
-```
-
 See `SCHEMA.md` for detailed schema definition and example queries.
 
 ## Development
@@ -327,10 +244,6 @@ cargo test --features integration-tests
 - **Streaming**: Query results stream without loading full datasets into memory
 - **Indexes**: Optimized database indexes for common query patterns
 - **Async**: Non-blocking database operations with Tokio runtime
-- **Query Optimization**: Materialized views for expensive analytical calculations
-- **Parallel Processing**: Multi-threaded analysis for large computational workloads
-- **Caching**: Intelligent caching of computed metrics and statistical results
-- **Batch Operations**: Efficient bulk processing for complex analyses
 
 ## Thread Safety
 
