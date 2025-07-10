@@ -83,8 +83,7 @@ proptest = "1.6"
 The library reads database connection parameters from environment variables:
 
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/bf2042_stats
-# Or individual components:
+# Individual components:
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=username
@@ -123,7 +122,7 @@ let mut weapon_stream = client.weapons_by_category("Assault Rifles").await?;
 
 while let Some(weapon) = weapon_stream.next().await {
     let weapon = weapon?;
-    println!("Weapon: {} (ID: {})", weapon.name, weapon.id);
+    println!("Weapon: {} (ID: {})", weapon.weapon_name, weapon.weapon_id);
 }
 ```
 
@@ -136,10 +135,10 @@ while let Some(weapon) = weapon_stream.next().await {
 client.weapons_by_category(category: &str) -> impl Stream<Item = Result<Weapon, StatsError>>
 
 // Stream weapon configurations with damage dropoffs
-client.weapon_configs(weapon_name: &str) -> impl Stream<Item = Result<WeaponConfig, StatsError>>
+client.weapon_configs(weapon_name: &str) -> impl Stream<Item = Result<Configuration, StatsError>>
 
 // Stream ammo statistics for weapon
-client.weapon_ammo_stats(weapon_name: &str) -> impl Stream<Item = Result<AmmoStats, StatsError>>
+client.weapon_ammo_stats(weapon_name: &str) -> impl Stream<Item = Result<WeaponAmmoStats, StatsError>>
 ```
 
 ### Database Management
@@ -247,7 +246,11 @@ docker run --name bf2042-postgres \
   -d postgres:16
 
 # Set environment variables
-export DATABASE_URL=postgresql://postgres:password@localhost:5432/bf2042_stats
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=password
+export POSTGRES_DB=bf2042_stats
 
 # Initialize database
 cargo run --bin bf2042-stats init
