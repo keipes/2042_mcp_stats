@@ -244,6 +244,7 @@ cargo test --features integration-tests
 - **Streaming**: Query results stream without loading full datasets into memory
 - **Indexes**: Optimized database indexes for common query patterns
 - **Async**: Non-blocking database operations with Tokio runtime
+- **Batch Operations**: Efficient bulk processing for data operations
 
 ## Thread Safety
 
