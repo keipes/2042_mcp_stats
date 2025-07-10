@@ -69,6 +69,7 @@ The library exposes weapons database queries as MCP tools for external integrati
 - **Clap**: CLI argument parsing
 - **Futures**: For Stream trait and async utilities
 - **Tokio-stream**: Stream utilities and adapters
+- **Axum**: For web server streaming examples (optional)
 
 ## Database Requirements
 
@@ -134,14 +135,63 @@ tokio::spawn(async move {
 });
 ```
 
+### Web Server Integration
+
+```rust
+use axum::{response::sse::{Event, Sse}, routing::get, Router};
+use futures::StreamExt;
+use tokio_stream::wrappers::ReceiverStream;
+
+// Streaming JSON responses without blocking threads
+async fn stream_weapons(
+    Path(category): Path<String>,
+    State(db): State<WeaponsDb>,
+) -> impl IntoResponse {
+    let stream = db.weapons_by_category(&category)
+        .map(|result| match result {
+            Ok(weapon) => Ok(Event::default().json_data(&weapon).unwrap()),
+            Err(e) => Err(axum::Error::new(e)),
+        });
+
+    Sse::new(stream)
+}
+
+// Or for regular JSON streaming
+async fn stream_weapons_json(
+    Path(category): Path<String>,
+    State(db): State<WeaponsDb>,
+) -> Response {
+    let stream = db.weapons_by_category(&category)
+        .map(|result| {
+            result
+                .map(|weapon| serde_json::to_vec(&weapon).unwrap())
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        });
+
+    StreamBody::new(stream).into_response()
+}
+
+// Server setup - each request gets its own stream without blocking
+let app = Router::new()
+    .route("/weapons/:category/stream", get(stream_weapons))
+    .route("/weapons/:category", get(stream_weapons_json))
+    .with_state(db);
+```
+
+### Real-time Processing Benefits
+
+- **No Thread Blocking**: Each request stream yields control back to the runtime
+- **Memory Efficient**: Results streamed as they're produced, not buffered
+- **Backpressure**: Client consumption speed naturally controls database query rate
+- **Cancellation**: If client disconnects, stream automatically stops querying
+- **Concurrent Requests**: Thousands of concurrent streaming requests possible
+
 ### As Binary
 
 ```bash
 # Apply schema and populate data
 ./mcp_stats --host localhost --port 5432 --user postgres --password secret --database bf2042
 ```
-
-## Development Status
 
 - [x] Project definition and README
 - [ ] Database schema implementation
