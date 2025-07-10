@@ -79,6 +79,9 @@ async fn main() -> Result<(), StatsError> {
     // Initialize the client with connection pool
     let client = StatsClient::new().await?;
 
+    // Client can be cloned cheaply for use across threads
+    let client_clone = client.clone();
+
     // Use client for queries...
 
     Ok(())
@@ -208,7 +211,7 @@ pub enum StatsError {
 
 ## CLI Tool
 
-The binary provides database management commands and analytical queries:
+The binary provides database management commands:
 
 ### Installation
 
@@ -235,40 +238,6 @@ bf2042-stats populate [--file weapons.json]
 bf2042-stats status
 ```
 
-### Analytical Commands
-
-```bash
-# Find best weapons for specific scenarios
-bf2042-stats analyze best-at-range --category "Assault Rifles" --range 100 --limit 5
-
-# Compare specific weapons
-bf2042-stats compare --weapons "AK-24,M5A3,SFAR-M GL" --ranges "50,100,150"
-
-# Time-to-kill analysis
-bf2042-stats ttk --category "SMGs" --health 100 --ranges "10,25,50"
-
-# Category statistics
-bf2042-stats stats --category "Sniper Rifles" --metrics "damage,velocity,rpm"
-
-# Export analysis results
-bf2042-stats analyze damage-efficiency --output results.csv --format csv
-```
-
-### Query Examples
-
-```bash
-# Find highest DPS weapons at 75m
-bf2042-stats query "
-  SELECT w.weapon_name, c.config_id, calculated_dps
-  FROM weapons_dps_at_range(75)
-  WHERE category_name = 'LMGs'
-  ORDER BY calculated_dps DESC
-  LIMIT 5"
-
-# Complex meta-analysis
-bf2042-stats analyze meta --engagement-ranges "25,50,100" --weight-ttk 0.4 --weight-handling 0.3 --weight-range 0.3
-```
-
 ### CLI Examples
 
 ```bash
@@ -277,55 +246,6 @@ bf2042-stats init
 
 # Reset and repopulate
 bf2042-stats clear && bf2042-stats schema && bf2042-stats populate
-
-# Find meta weapons for competitive play
-bf2042-stats analyze meta --ranges "50,100" --ttk-weight 0.5 --handling-weight 0.3 --versatility-weight 0.2
-
-# Export weapon comparison data
-bf2042-stats compare --weapons "all" --category "Assault Rifles" --output comparison.json
-```
-
-## Advanced Features
-
-### Complex Query Support
-
-The library supports sophisticated analytical queries through:
-
-#### Computed Metrics
-
-- **Time-to-Kill (TTK)**: Calculated based on damage, RPM, and target health
-- **Damage Per Second (DPS)**: Real-world DPS accounting for reload times
-- **Effective Range**: Optimal engagement distances for each configuration
-- **Versatility Score**: Multi-range performance rating
-- **Meta Rating**: Weighted scoring across multiple engagement scenarios
-
-#### Query Optimization
-
-- **View Materialization**: Pre-computed common analytical queries
-- **Query Caching**: Intelligent caching of expensive calculations
-- **Parallel Execution**: Multi-threaded analysis for large datasets
-- **Incremental Updates**: Efficient recalculation when data changes
-
-#### Statistical Functions
-
-```rust
-// Built-in statistical analysis
-client.statistical_summary(
-    query: &AnalyticalQuery,
-    grouping: GroupBy
-) -> Result<StatisticalSummary, StatsError>
-
-// Correlation analysis between weapon attributes
-client.attribute_correlation(
-    attributes: &[WeaponAttribute],
-    filters: &ConfigFilters
-) -> Result<CorrelationMatrix, StatsError>
-
-// Meta analysis across engagement scenarios
-client.meta_analysis(
-    scenarios: &[EngagementScenario],
-    weights: &ScenarioWeights
-) -> Result<MetaRanking, StatsError>
 ```
 
 ## Data Schema
@@ -416,6 +336,7 @@ cargo test --features integration-tests
 
 The `StatsClient` is designed to be shared across threads:
 
-- Uses `Arc<PgPool>` internally for thread-safe connection sharing
+- Uses `PgPool` directly (which is already thread-safe and cheaply cloneable)
 - All query methods are `async` and `Send + Sync`
 - No mutable state in the client itself
+- Client can be cloned efficiently for use across threads
