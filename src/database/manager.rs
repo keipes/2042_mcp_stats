@@ -383,62 +383,20 @@ impl DatabaseManager {
             }
         }
 
-        // Check referential integrity
-        // Weapons should reference valid categories
-        let orphaned_weapons: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM weapons w WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.category_id = w.category_id)"
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        // Simplified referential integrity checks
+        let integrity_checks = [
+            ("SELECT COUNT(*) FROM weapons w WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.category_id = w.category_id)", "weapons reference non-existent categories"),
+            ("SELECT COUNT(*) FROM configurations c WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = c.weapon_id) OR NOT EXISTS (SELECT 1 FROM barrels b WHERE b.barrel_id = c.barrel_id) OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = c.ammo_id)", "configurations have invalid references"),
+            ("SELECT COUNT(*) FROM config_dropoffs cd WHERE NOT EXISTS (SELECT 1 FROM configurations c WHERE c.config_id = cd.config_id)", "dropoffs reference non-existent configurations"),
+            ("SELECT COUNT(*) FROM weapon_ammo_stats was WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = was.weapon_id) OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = was.ammo_id)", "ammo stats have invalid references"),
+        ];
 
-        if orphaned_weapons.0 > 0 {
-            report.is_valid = false;
-            report.issues.push(format!("{} weapons reference non-existent categories", orphaned_weapons.0));
-        }
-
-        // Configurations should reference valid weapons, barrels, and ammo
-        let orphaned_configs: (i64,) = sqlx::query_as(
-            r#"
-            SELECT COUNT(*) FROM configurations c 
-            WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = c.weapon_id)
-               OR NOT EXISTS (SELECT 1 FROM barrels b WHERE b.barrel_id = c.barrel_id)
-               OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = c.ammo_id)
-            "#
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        if orphaned_configs.0 > 0 {
-            report.is_valid = false;
-            report.issues.push(format!("{} configurations have invalid references", orphaned_configs.0));
-        }
-
-        // Config dropoffs should reference valid configurations
-        let orphaned_dropoffs: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM config_dropoffs cd WHERE NOT EXISTS (SELECT 1 FROM configurations c WHERE c.config_id = cd.config_id)"
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        if orphaned_dropoffs.0 > 0 {
-            report.is_valid = false;
-            report.issues.push(format!("{} dropoffs reference non-existent configurations", orphaned_dropoffs.0));
-        }
-
-        // Weapon ammo stats should reference valid weapons and ammo types
-        let orphaned_ammo_stats: (i64,) = sqlx::query_as(
-            r#"
-            SELECT COUNT(*) FROM weapon_ammo_stats was 
-            WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = was.weapon_id)
-               OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = was.ammo_id)
-            "#
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        if orphaned_ammo_stats.0 > 0 {
-            report.is_valid = false;
-            report.issues.push(format!("{} ammo stats have invalid references", orphaned_ammo_stats.0));
+        for (query, description) in integrity_checks {
+            let count: (i64,) = sqlx::query_as(query).fetch_one(&self.pool).await?;
+            if count.0 > 0 {
+                report.is_valid = false;
+                report.issues.push(format!("{} {}", count.0, description));
+            }
         }
 
         if report.is_valid {
