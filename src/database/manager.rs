@@ -1,6 +1,6 @@
 //! Database manager for schema and data operations
 
-use crate::models::DatabaseConfig;
+use crate::models::{DatabaseConfig, ValidationReport};
 use crate::{Result, StatsError};
 use sqlx::PgPool;
 use tracing::{debug, info};
@@ -13,11 +13,11 @@ pub struct DatabaseManager {
 impl DatabaseManager {
     /// Create a new database manager with the given configuration
     pub async fn new(config: &DatabaseConfig) -> Result<Self> {
-        info!("Connecting to database at {}:{}", config.host, config.port);
+        info!("Connecting to database: {}", config.url());
 
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(10)
-            .connect(&config.url())
+            .connect(config.url())
             .await?;
 
         debug!("Database connection established");
@@ -40,142 +40,17 @@ impl DatabaseManager {
 
     /// Create the database schema
     pub async fn create_schema(&self) -> Result<()> {
-        info!("Creating database schema");
+        info!("Creating database schema from schema.sql");
 
-        // Create categories table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS categories (
-                category_id SERIAL PRIMARY KEY,
-                category_name VARCHAR(50) NOT NULL UNIQUE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
+        // Read the schema file
+        let schema_sql = std::fs::read_to_string("schema.sql")
+            .map_err(|e| StatsError::ConfigError(format!("Failed to read schema.sql: {}", e)))?;
 
-        // Create weapons table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS weapons (
-                weapon_id SERIAL PRIMARY KEY,
-                weapon_name VARCHAR(100) NOT NULL UNIQUE,
-                category_id INTEGER NOT NULL REFERENCES categories(category_id)
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create barrels table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS barrels (
-                barrel_id SERIAL PRIMARY KEY,
-                barrel_name VARCHAR(100) NOT NULL UNIQUE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create ammo_types table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS ammo_types (
-                ammo_id SERIAL PRIMARY KEY,
-                ammo_type_name VARCHAR(100) NOT NULL UNIQUE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create weapon_ammo_stats table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS weapon_ammo_stats (
-                weapon_id INTEGER NOT NULL REFERENCES weapons(weapon_id),
-                ammo_id INTEGER NOT NULL REFERENCES ammo_types(ammo_id),
-                magazine_size SMALLINT NOT NULL,
-                empty_reload_time DECIMAL(4,2) NOT NULL,
-                tactical_reload_time DECIMAL(4,2) NOT NULL,
-                headshot_multiplier DECIMAL(3,1) NOT NULL,
-                pellet_count SMALLINT,
-                PRIMARY KEY (weapon_id, ammo_id)
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create configurations table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS configurations (
-                config_id SERIAL PRIMARY KEY,
-                weapon_id INTEGER NOT NULL REFERENCES weapons(weapon_id),
-                barrel_id INTEGER NOT NULL REFERENCES barrels(barrel_id),
-                ammo_id INTEGER NOT NULL REFERENCES ammo_types(ammo_id),
-                velocity SMALLINT NOT NULL,
-                rpm_single SMALLINT,
-                rpm_burst SMALLINT,
-                rpm_auto SMALLINT,
-                UNIQUE (weapon_id, barrel_id, ammo_id)
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create config_dropoffs table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS config_dropoffs (
-                config_id INTEGER NOT NULL REFERENCES configurations(config_id),
-                range SMALLINT NOT NULL,
-                damage DECIMAL(5,1) NOT NULL,
-                UNIQUE (config_id, range)
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create indexes for performance
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_weapons_category ON weapons(category_id)")
+        // Execute the schema SQL using raw query (no compile-time validation)
+        sqlx::query(&schema_sql)
             .execute(&self.pool)
-            .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_weapons_name ON weapons(weapon_name)")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_configs_weapon ON configurations(weapon_id)")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_configs_lookup ON configurations(weapon_id, barrel_id, ammo_id)")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_config_dropoffs ON config_dropoffs(config_id)")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_dropoffs_range ON config_dropoffs(range)")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_dropoffs_damage ON config_dropoffs(damage DESC)",
-        )
-        .execute(&self.pool)
-        .await?;
-
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_ammo_stats ON weapon_ammo_stats(weapon_id)")
-            .execute(&self.pool)
-            .await?;
+            .await
+            .map_err(|e| StatsError::QueryFailed(format!("Failed to create schema: {}", e)))?;
 
         info!("Database schema created successfully");
         Ok(())
@@ -392,5 +267,186 @@ impl DatabaseManager {
 
         info!("Database populated successfully from JSON");
         Ok(())
+    }
+
+    /// Reset database - Drop and recreate all tables
+    pub async fn reset_database(&self) -> Result<()> {
+        info!("Resetting database (drop and recreate schema)");
+
+        // Drop all tables in correct order (reverse dependency order)
+        sqlx::query("DROP TABLE IF EXISTS config_dropoffs CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS configurations CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS weapon_ammo_stats CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS weapons CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS ammo_types CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS barrels CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        sqlx::query("DROP TABLE IF EXISTS categories CASCADE")
+            .execute(&self.pool)
+            .await?;
+
+        info!("All tables dropped successfully");
+
+        // Recreate schema
+        self.create_schema().await?;
+
+        info!("Database reset completed successfully");
+        Ok(())
+    }
+
+    /// Clear all data while keeping schema intact
+    pub async fn clear_data(&self) -> Result<()> {
+        info!("Clearing all data from database");
+
+        // Start transaction
+        let mut tx = self.pool.begin().await?;
+
+        // Delete data in correct order (reverse dependency order)
+        sqlx::query("DELETE FROM config_dropoffs")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM configurations")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM weapon_ammo_stats")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM weapons")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM ammo_types")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM barrels")
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("DELETE FROM categories")
+            .execute(&mut *tx)
+            .await?;
+
+        // Commit transaction
+        tx.commit().await?;
+
+        info!("All data cleared successfully");
+        Ok(())
+    }
+
+    /// Validate data integrity
+    pub async fn validate_data(&self) -> Result<ValidationReport> {
+        info!("Validating database data integrity");
+
+        let mut report = ValidationReport {
+            is_valid: true,
+            issues: Vec::new(),
+            table_counts: std::collections::HashMap::new(),
+        };
+
+        // Check table counts
+        let tables = [
+            "categories", "weapons", "barrels", "ammo_types", 
+            "weapon_ammo_stats", "configurations", "config_dropoffs"
+        ];
+
+        for table in &tables {
+            let count: (i64,) = sqlx::query_as(&format!("SELECT COUNT(*) FROM {}", table))
+                .fetch_one(&self.pool)
+                .await?;
+            
+            report.table_counts.insert(table.to_string(), count.0);
+            
+            if count.0 == 0 {
+                report.is_valid = false;
+                report.issues.push(format!("Table '{}' is empty", table));
+            }
+        }
+
+        // Check referential integrity
+        // Weapons should reference valid categories
+        let orphaned_weapons: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM weapons w WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.category_id = w.category_id)"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        if orphaned_weapons.0 > 0 {
+            report.is_valid = false;
+            report.issues.push(format!("{} weapons reference non-existent categories", orphaned_weapons.0));
+        }
+
+        // Configurations should reference valid weapons, barrels, and ammo
+        let orphaned_configs: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM configurations c 
+            WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = c.weapon_id)
+               OR NOT EXISTS (SELECT 1 FROM barrels b WHERE b.barrel_id = c.barrel_id)
+               OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = c.ammo_id)
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        if orphaned_configs.0 > 0 {
+            report.is_valid = false;
+            report.issues.push(format!("{} configurations have invalid references", orphaned_configs.0));
+        }
+
+        // Config dropoffs should reference valid configurations
+        let orphaned_dropoffs: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM config_dropoffs cd WHERE NOT EXISTS (SELECT 1 FROM configurations c WHERE c.config_id = cd.config_id)"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        if orphaned_dropoffs.0 > 0 {
+            report.is_valid = false;
+            report.issues.push(format!("{} dropoffs reference non-existent configurations", orphaned_dropoffs.0));
+        }
+
+        // Weapon ammo stats should reference valid weapons and ammo types
+        let orphaned_ammo_stats: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM weapon_ammo_stats was 
+            WHERE NOT EXISTS (SELECT 1 FROM weapons w WHERE w.weapon_id = was.weapon_id)
+               OR NOT EXISTS (SELECT 1 FROM ammo_types a WHERE a.ammo_id = was.ammo_id)
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        if orphaned_ammo_stats.0 > 0 {
+            report.is_valid = false;
+            report.issues.push(format!("{} ammo stats have invalid references", orphaned_ammo_stats.0));
+        }
+
+        if report.is_valid {
+            info!("Database validation passed - all integrity checks successful");
+        } else {
+            info!("Database validation failed - {} issues found", report.issues.len());
+        }
+
+        Ok(report)
     }
 }

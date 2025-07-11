@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::models::weapon::{Damage, ReloadTime, HeadshotMultiplier};
 
 /// Root structure of weapons.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +46,7 @@ pub struct WeaponStatData {
 /// Damage dropoff at specific range
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DamageDropoffData {
-    pub damage: f64,
+    pub damage: Damage,
     pub range: i16,
 }
 
@@ -55,11 +56,11 @@ pub struct AmmoStatData {
     #[serde(rename = "magSize")]
     pub mag_size: i16,
     #[serde(rename = "headshotMultiplier")]
-    pub headshot_multiplier: f64,
+    pub headshot_multiplier: HeadshotMultiplier,
     #[serde(rename = "emptyReload")]
-    pub empty_reload: f64,
+    pub empty_reload: Option<ReloadTime>,
     #[serde(rename = "tacticalReload")]
-    pub tactical_reload: f64,
+    pub tactical_reload: Option<ReloadTime>,
     #[serde(rename = "pelletCount")]
     pub pellet_count: Option<i16>,
 }

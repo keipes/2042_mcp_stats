@@ -1,0 +1,420 @@
+2025-07-11 09:54:05 bf2042_stats_db  | 
+2025-07-11 09:54:05 bf2042_stats_db  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+2025-07-11 09:54:05 bf2042_stats_db  | 
+2025-07-11 09:54:05 bf2042_stats_db  | 2025-07-11 16:54:05.950 UTC [1] LOG:  starting PostgreSQL 16.9 (Debian 16.9-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+2025-07-11 09:54:05 bf2042_stats_db  | 2025-07-11 16:54:05.950 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2025-07-11 09:54:05 bf2042_stats_db  | 2025-07-11 16:54:05.950 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2025-07-11 09:54:05 bf2042_stats_db  | 2025-07-11 16:54:05.956 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2025-07-11 09:54:05 bf2042_stats_db  | 2025-07-11 16:54:05.962 UTC [29] LOG:  database system was interrupted; last known up at 2025-07-11 16:50:12 UTC
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.154 UTC [29] LOG:  database system was not properly shut down; automatic recovery in progress
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.157 UTC [29] LOG:  redo starts at 0/14EA2C8
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.170 UTC [29] LOG:  invalid record length at 0/1912108: expected at least 24, got 0
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.170 UTC [29] LOG:  redo done at 0/19120C0 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.01 s
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.178 UTC [27] LOG:  checkpoint starting: end-of-recovery immediate wait
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.240 UTC [27] LOG:  checkpoint complete: wrote 922 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.012 s, sync=0.043 s, total=0.065 s; sync files=301, longest=0.003 s, average=0.001 s; distance=4255 kB, estimate=4255 kB; lsn=0/1912108, redo lsn=0/1912108
+2025-07-11 09:54:06 bf2042_stats_db  | 2025-07-11 16:54:06.244 UTC [1] LOG:  database system is ready to accept connections
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.387 UTC [88] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.387 UTC [88] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.390 UTC [88] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.390 UTC [88] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:54:37 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:54:37 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:54:37 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.391 UTC [88] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.391 UTC [88] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:37 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.983 UTC [89] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.983 UTC [89] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.985 UTC [89] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.985 UTC [89] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:54:37 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:54:37 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:54:37 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:54:37 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.987 UTC [89] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:54:37 bf2042_stats_db  | 2025-07-11 16:54:37.987 UTC [89] STATEMENT:  
+2025-07-11 09:54:37 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:37 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:54:37 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:54:37 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:54:37 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:54:37 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:37 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:54:37 bf2042_stats_db  |             
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.012 UTC [106] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.012 UTC [106] STATEMENT:  
+2025-07-11 09:54:51 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:54:51 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:54:51 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:54:51 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:54:51 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:54:51 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:51 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:54:51 bf2042_stats_db  |             
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.012 UTC [107] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.012 UTC [107] STATEMENT:  
+2025-07-11 09:54:51 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:54:51 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:54:51 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:54:51 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:54:51 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:54:51 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:54:51 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:51 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:54:51 bf2042_stats_db  |             
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.015 UTC [106] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.015 UTC [106] STATEMENT:  
+2025-07-11 09:54:51 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:51 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:54:51 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:54:51 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:51 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:54:51 bf2042_stats_db  |             
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.015 UTC [107] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:54:51 bf2042_stats_db  | 2025-07-11 16:54:51.015 UTC [107] STATEMENT:  
+2025-07-11 09:54:51 bf2042_stats_db  |             SELECT
+2025-07-11 09:54:51 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:54:51 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:54:51 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:54:51 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:54:51 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:54:51 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:54:51 bf2042_stats_db  |             
+2025-07-11 09:55:05 bf2042_stats_db  | 2025-07-11 16:55:05.381 UTC [132] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:55:05 bf2042_stats_db  | 2025-07-11 16:55:05.381 UTC [132] STATEMENT:  
+2025-07-11 09:55:05 bf2042_stats_db  |             SELECT
+2025-07-11 09:55:05 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:55:05 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:55:05 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:55:05 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:55:05 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:55:05 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:55:05 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:55:05 bf2042_stats_db  |             
+2025-07-11 09:55:05 bf2042_stats_db  | 2025-07-11 16:55:05.381 UTC [133] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:55:05 bf2042_stats_db  | 2025-07-11 16:55:05.381 UTC [133] STATEMENT:  
+2025-07-11 09:55:05 bf2042_stats_db  |             SELECT
+2025-07-11 09:55:05 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:55:05 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:55:05 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:55:05 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:55:05 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:55:05 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:55:05 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:55:05 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:55:05 bf2042_stats_db  |             
+2025-07-11 09:58:24 bf2042_stats_db  | 2025-07-11 16:58:24.612 UTC [463] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:24 bf2042_stats_db  | 2025-07-11 16:58:24.612 UTC [463] STATEMENT:  
+2025-07-11 09:58:24 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:24 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:24 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:24 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:24 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:24 bf2042_stats_db  |             
+2025-07-11 09:58:24 bf2042_stats_db  | 2025-07-11 16:58:24.612 UTC [462] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:24 bf2042_stats_db  | 2025-07-11 16:58:24.612 UTC [462] STATEMENT:  
+2025-07-11 09:58:24 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:24 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:24 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:24 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:24 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:24 bf2042_stats_db  |             
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.417 UTC [490] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.417 UTC [490] STATEMENT:  
+2025-07-11 09:58:39 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:39 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:39 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:39 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:39 bf2042_stats_db  |             
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.417 UTC [489] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.417 UTC [489] STATEMENT:  
+2025-07-11 09:58:39 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:39 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:39 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:39 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:39 bf2042_stats_db  |             
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.420 UTC [489] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.420 UTC [489] STATEMENT:  
+2025-07-11 09:58:39 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:58:39 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:58:39 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:58:39 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:58:39 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:58:39 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:39 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:58:39 bf2042_stats_db  |             
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.420 UTC [490] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:58:39 bf2042_stats_db  | 2025-07-11 16:58:39.420 UTC [490] STATEMENT:  
+2025-07-11 09:58:39 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:58:39 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:58:39 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:58:39 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:58:39 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:58:39 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:58:39 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:58:39 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:39 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:58:39 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.696 UTC [508] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.696 UTC [508] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.696 UTC [507] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.696 UTC [507] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.699 UTC [507] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.699 UTC [507] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:58:52 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:58:52 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:58:52 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.699 UTC [508] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.699 UTC [508] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:58:52 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:58:52 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:58:52 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:58:52 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.700 UTC [508] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.700 UTC [508] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:52 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.700 UTC [507] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:58:52 bf2042_stats_db  | 2025-07-11 16:58:52.700 UTC [507] STATEMENT:  
+2025-07-11 09:58:52 bf2042_stats_db  |             SELECT
+2025-07-11 09:58:52 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:58:52 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:58:52 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:58:52 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:58:52 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:58:52 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:58:52 bf2042_stats_db  |             
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.959 UTC [525] ERROR:  relation "weapons" does not exist at character 80
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.959 UTC [525] STATEMENT:  
+2025-07-11 09:59:01 bf2042_stats_db  |             SELECT w.weapon_id, w.weapon_name, w.category_id
+2025-07-11 09:59:01 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN categories c ON w.category_id = c.category_id
+2025-07-11 09:59:01 bf2042_stats_db  |             WHERE c.category_name = $1
+2025-07-11 09:59:01 bf2042_stats_db  |             ORDER BY w.weapon_name
+2025-07-11 09:59:01 bf2042_stats_db  |             
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.961 UTC [525] ERROR:  relation "weapons" does not exist at character 330
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.961 UTC [525] STATEMENT:  
+2025-07-11 09:59:01 bf2042_stats_db  |             SELECT
+2025-07-11 09:59:01 bf2042_stats_db  |                 c.config_id,
+2025-07-11 09:59:01 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:59:01 bf2042_stats_db  |                 b.barrel_name,
+2025-07-11 09:59:01 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:59:01 bf2042_stats_db  |                 c.velocity,
+2025-07-11 09:59:01 bf2042_stats_db  |                 c.rpm_single,
+2025-07-11 09:59:01 bf2042_stats_db  |                 c.rpm_burst,
+2025-07-11 09:59:01 bf2042_stats_db  |                 c.rpm_auto,
+2025-07-11 09:59:01 bf2042_stats_db  |                 cd.range,
+2025-07-11 09:59:01 bf2042_stats_db  |                 cd.damage
+2025-07-11 09:59:01 bf2042_stats_db  |             FROM weapons w
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN configurations c ON w.weapon_id = c.weapon_id
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN config_dropoffs cd ON c.config_id = cd.config_id
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN barrels b ON c.barrel_id = b.barrel_id
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN ammo_types a ON c.ammo_id = a.ammo_id
+2025-07-11 09:59:01 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:59:01 bf2042_stats_db  |             ORDER BY b.barrel_name, a.ammo_type_name, cd.range
+2025-07-11 09:59:01 bf2042_stats_db  |             
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.963 UTC [525] ERROR:  relation "weapon_ammo_stats" does not exist at character 293
+2025-07-11 09:59:01 bf2042_stats_db  | 2025-07-11 16:59:01.963 UTC [525] STATEMENT:  
+2025-07-11 09:59:01 bf2042_stats_db  |             SELECT
+2025-07-11 09:59:01 bf2042_stats_db  |                 w.weapon_name,
+2025-07-11 09:59:01 bf2042_stats_db  |                 a.ammo_type_name,
+2025-07-11 09:59:01 bf2042_stats_db  |                 was.magazine_size,
+2025-07-11 09:59:01 bf2042_stats_db  |                 was.empty_reload_time,
+2025-07-11 09:59:01 bf2042_stats_db  |                 was.tactical_reload_time,
+2025-07-11 09:59:01 bf2042_stats_db  |                 was.headshot_multiplier,
+2025-07-11 09:59:01 bf2042_stats_db  |                 was.pellet_count
+2025-07-11 09:59:01 bf2042_stats_db  |             FROM weapon_ammo_stats was
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN weapons w ON was.weapon_id = w.weapon_id
+2025-07-11 09:59:01 bf2042_stats_db  |             JOIN ammo_types a ON was.ammo_id = a.ammo_id
+2025-07-11 09:59:01 bf2042_stats_db  |             WHERE w.weapon_name = $1
+2025-07-11 09:59:01 bf2042_stats_db  |             ORDER BY a.ammo_type_name
+2025-07-11 09:59:01 bf2042_stats_db  |             
