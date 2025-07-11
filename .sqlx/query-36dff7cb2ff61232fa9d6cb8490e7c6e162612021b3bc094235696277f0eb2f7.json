@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                w.weapon_name,\n                a.ammo_type_name,\n                was.magazine_size,\n                was.empty_reload_time,\n                was.tactical_reload_time,\n                was.headshot_multiplier,\n                was.pellet_count\n            FROM weapon_ammo_stats was\n            JOIN weapons w ON was.weapon_id = w.weapon_id\n            JOIN ammo_types a ON was.ammo_id = a.ammo_id\n            WHERE w.weapon_name = $1\n            ORDER BY a.ammo_type_name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "weapon_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "ammo_type_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "magazine_size",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "empty_reload_time",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "tactical_reload_time",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "headshot_multiplier",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "pellet_count",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "36dff7cb2ff61232fa9d6cb8490e7c6e162612021b3bc094235696277f0eb2f7"
+}

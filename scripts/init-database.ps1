@@ -27,16 +27,13 @@ do {
 
 Write-Host "Database is ready!" -ForegroundColor Green
 
-# Initialize schema
-Write-Host "Creating database schema..." -ForegroundColor Cyan
-cargo run -- init
-
-# Populate with data if weapons.json exists
+# Initialize schema and populate with data
+Write-Host "Initializing database (schema + data)..." -ForegroundColor Cyan
 if (Test-Path "weapons.json") {
-    Write-Host "Populating database with weapon data..." -ForegroundColor Cyan
-    cargo run -- populate -i weapons.json
+    cargo run -- init --force --file weapons.json
 } else {
-    Write-Host "weapons.json not found, skipping data population" -ForegroundColor Yellow
+    Write-Host "weapons.json not found, using default" -ForegroundColor Yellow
+    cargo run -- init --force
 }
 
 Write-Host "Database initialization complete!" -ForegroundColor Green

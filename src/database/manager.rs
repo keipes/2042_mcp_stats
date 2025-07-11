@@ -42,35 +42,39 @@ impl DatabaseManager {
     pub async fn create_schema(&self) -> Result<()> {
         info!("Creating database schema from schema.sql");
 
-        // Read the schema file
+        // Use psql command to execute the schema file directly
+        // This is more reliable than parsing SQL statements manually
+        let mut output = std::process::Command::new("docker")
+            .args([
+                "exec", "-i", "bf2042_stats_db",
+                "psql", "-U", "postgres", "-d", "bf2042_stats",
+                "-f", "/dev/stdin"
+            ])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| StatsError::ConfigError(format!("Failed to start psql process: {}", e)))?;
+
+        // Read schema file and pipe it to psql
         let schema_sql = std::fs::read_to_string("schema.sql")
             .map_err(|e| StatsError::ConfigError(format!("Failed to read schema.sql: {}", e)))?;
 
-        // Clean up and split the SQL file into individual statements
-        let cleaned_sql = schema_sql
-            .lines()
-            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with("--"))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        let statements: Vec<&str> = cleaned_sql
-            .split(';')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        // Execute each statement individually
-        for (i, statement) in statements.iter().enumerate() {
-            if !statement.is_empty() {
-                debug!("Executing statement {}: {}", i + 1, statement);
-                sqlx::query(statement)
-                    .execute(&self.pool)
-                    .await
-                    .map_err(|e| StatsError::QueryFailed(format!("Failed to execute statement '{}': {}", statement, e)))?;
-            }
+        if let Some(mut stdin) = output.stdin.take() {
+            use std::io::Write;
+            stdin.write_all(schema_sql.as_bytes())
+                .map_err(|e| StatsError::ConfigError(format!("Failed to write to psql stdin: {}", e)))?;
         }
 
-        info!("Database schema created successfully");
+        let result = output.wait_with_output()
+            .map_err(|e| StatsError::ConfigError(format!("Failed to execute psql: {}", e)))?;
+
+        if !result.status.success() {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            return Err(StatsError::QueryFailed(format!("Failed to create schema via psql: {}", stderr)));
+        }
+
+        info!("Database schema created successfully via psql");
         Ok(())
     }
 

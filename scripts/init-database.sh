@@ -26,16 +26,14 @@ done
 
 echo "✅ Database is ready!"
 
-# Initialize schema
-echo "📊 Creating database schema..."
-cargo run -- init
-
-# Populate with data if weapons.json exists
+# Initialize schema and populate with data
+echo "📊 Initializing database (schema + data)..."
 if [ -f "weapons.json" ]; then
-    echo "🔫 Populating database with weapon data..."
-    cargo run -- populate -i weapons.json
+    echo "🔫 Using weapons.json data file"
+    cargo run -- init --force --file weapons.json
 else
-    echo "⚠️  weapons.json not found, skipping data population"
+    echo "⚠️  weapons.json not found, using default"
+    cargo run -- init --force
 fi
 
 echo "🎉 Database initialization complete!"

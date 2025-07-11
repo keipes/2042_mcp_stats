@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                c.config_id,\n                w.weapon_name,\n                b.barrel_name,\n                a.ammo_type_name,\n                c.velocity,\n                c.rpm_single,\n                c.rpm_burst,\n                c.rpm_auto,\n                cd.range,\n                cd.damage\n            FROM weapons w\n            JOIN configurations c ON w.weapon_id = c.weapon_id\n            JOIN config_dropoffs cd ON c.config_id = cd.config_id\n            JOIN barrels b ON c.barrel_id = b.barrel_id\n            JOIN ammo_types a ON c.ammo_id = a.ammo_id\n            WHERE w.weapon_name = $1\n            ORDER BY b.barrel_name, a.ammo_type_name, cd.range\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "config_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "weapon_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "barrel_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "ammo_type_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "velocity",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 5,
+        "name": "rpm_single",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 6,
+        "name": "rpm_burst",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "rpm_auto",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 8,
+        "name": "range",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 9,
+        "name": "damage",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "9921e93bd51181ed03b4bd3badd3df9e96d97f39404bdc8ffc2d856fd6540da4"
+}

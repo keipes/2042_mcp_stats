@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT w.weapon_id, w.weapon_name, w.category_id\n            FROM weapons w\n            JOIN categories c ON w.category_id = c.category_id\n            WHERE c.category_name = $1\n            ORDER BY w.weapon_name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "weapon_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "weapon_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "category_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8b3306b3641d80037edf58877ac4784dd0dc886822d93db5e7280b442e406d98"
+}
