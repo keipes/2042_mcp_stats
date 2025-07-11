@@ -63,6 +63,88 @@ enum Commands {
         #[arg(short, long)]
         force: bool,
     },
+    /// Run demo queries to showcase client functionality
+    Demo,
+}
+
+/// Demonstrate client query functionality with real data
+async fn demo_client_queries() -> Result<()> {
+    println!("🎯 BF2042 Stats Client Demo");
+    println!("==========================");
+    println!();
+
+    // Initialize client
+    println!("📡 Connecting to database...");
+    let client = StatsClient::new().await?;
+    println!("✓ Connected successfully");
+    println!();
+
+    // Demo 1: List weapons in Assault Rifles category
+    println!("🔫 Demo 1: Weapons in Assault Rifles category");
+    println!("{}", "-".repeat(45));
+    let weapons = client.weapons_by_category("Assault Rifles").await?;
+    
+    if weapons.is_empty() {
+        println!("❌ No weapons found in Assault Rifles category");
+        return Ok(());
+    }
+    
+    println!("Found {} weapons (showing first 5):", weapons.len());
+    for (i, weapon) in weapons.iter().take(5).enumerate() {
+        println!("  {}. {}", i + 1, weapon.weapon_name);
+    }
+    println!();
+
+    // Demo 2: Get details for first weapon
+    let demo_weapon = &weapons[0];
+    println!("🔍 Demo 2: Details for '{}'", demo_weapon.weapon_name);
+    println!("{}", "-".repeat(45));
+    
+    let details = client.weapon_details(&demo_weapon.weapon_name).await?;
+    println!("Configurations: {}", details.configurations.len());
+    println!("Ammo types: {}", details.ammo_stats.len());
+    
+    // Show first ammo type stats
+    if let Some(ammo) = details.ammo_stats.first() {
+        println!("Sample ammo ({}):", ammo.ammo_type_name);
+        println!("  Magazine: {} rounds", ammo.magazine_size);
+        println!("  Headshot multiplier: {:.1}x", ammo.headshot_multiplier);
+    }
+    println!();
+
+    // Demo 3: Damage at 100m
+    println!("💥 Demo 3: Damage at 100m for '{}'", demo_weapon.weapon_name);
+    println!("{}", "-".repeat(45));
+    
+    let damage_configs = client.damage_at_range(&demo_weapon.weapon_name, 100).await?;
+    
+    if damage_configs.is_empty() {
+        println!("❌ No damage data at 100m");
+    } else {
+        println!("Best configuration:");
+        let best = &damage_configs[0];
+        println!("  {} + {}", best.barrel_name, best.ammo_type_name);
+        println!("  Damage: {} at {}m", best.damage, best.effective_range);
+        println!("  Velocity: {} m/s", best.velocity);
+    }
+    println!();
+
+    // Demo 4: Top 3 configurations in category at 29m
+    println!("🏆 Demo 4: Top Assault Rifle configs at 29m");
+    println!("{}", "-".repeat(45));
+    
+    let best_configs = client.best_configs_in_category("Assault Rifles", 29, 20).await?;
+    
+    for (i, config) in best_configs.iter().enumerate() {
+        println!("  {}. {} ({} + {})", 
+            i + 1, config.weapon_name, config.barrel_name, config.ammo_type_name);
+        println!("     {} damage, {} rounds", config.damage, config.magazine_size);
+    }
+    
+    println!();
+    println!("✅ Demo completed - all queries successful!");
+    
+    Ok(())
 }
 
 #[tokio::main]
@@ -240,6 +322,24 @@ async fn main() -> Result<()> {
             client.database_manager().reset_database().await?;
             
             println!("✓ Database reset successfully");
+            
+            Ok(())
+        }
+        Commands::Demo => {
+            info!("Running demo queries...");
+            
+            match demo_client_queries().await {
+                Ok(_) => {
+                    println!("\n✓ Demo completed successfully!");
+                    println!("All client queries executed without errors.");
+                }
+                Err(e) => {
+                    error!("Demo failed: {}", e);
+                    println!("✗ Demo failed: {}", e);
+                    println!("Make sure the database is initialized with: cargo run -- init");
+                    std::process::exit(1);
+                }
+            }
             
             Ok(())
         }
