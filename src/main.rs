@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use tracing::{info, error, Level};
 use tracing_subscriber;
 
-use bf2042_stats::{StatsClient, Result, StatsError};
+use bf2042_stats::{StatsClient, Result};
 
 #[derive(Parser)]
 #[command(name = "bf2042-stats")]
@@ -53,13 +53,25 @@ async fn main() -> Result<()> {
                 info!("Force flag enabled - will recreate database");
             }
             
-            // For now, just test the connection
+            // Initialize client and database manager
             let client = StatsClient::new().await?;
+            let db_manager = client.database_manager();
+            
             info!("Database connection successful");
             
-            // Schema creation and data population will be implemented in later phases
-            info!("Schema creation and data population coming in Phase 1.4-1.5");
-            info!("Would use JSON file: {}", file);
+            // Create schema
+            info!("Creating database schema...");
+            db_manager.create_schema().await?;
+            info!("Schema created successfully");
+            
+            // Populate data from JSON
+            info!("Populating data from JSON file: {}", file);
+            db_manager.populate_from_json(&file).await?;
+            info!("Data populated successfully");
+            
+            println!("✓ Database initialized successfully");
+            println!("✓ Schema created");
+            println!("✓ Data populated from {}", file);
             
             Ok(())
         }

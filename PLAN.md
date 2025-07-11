@@ -52,27 +52,32 @@
 - [x] Implement `serde` derives for JSON parsing
 - [x] Add `sqlx::FromRow` derives for database mapping
 
-### 1.4 Database Schema Creation
+### 1.4 Database Schema Creation ✅
 
-- [ ] Implement `DatabaseManager::create_schema()` method
-- [ ] Create SQL for core tables:
+- [x] Implement `DatabaseManager::create_schema()` method
+- [x] Create SQL for core tables:
   - `categories` table
   - `weapons` table
   - `barrels` table
   - `ammo_types` table
-- [ ] Add primary keys and basic indexes
-- [ ] Test schema creation with Docker PostgreSQL
+  - `weapon_ammo_stats` table
+  - `configurations` table
+  - `config_dropoffs` table
+- [x] Add primary keys and basic indexes
+- [x] Test schema creation with Docker PostgreSQL
 
-### 1.5 Basic JSON Data Population
+### 1.5 Basic JSON Data Population ✅
 
-- [ ] Implement `DatabaseManager::populate_from_json()` method
-- [ ] Parse `weapons.json` structure:
+- [x] Implement `DatabaseManager::populate_from_json()` method
+- [x] Parse `weapons.json` structure:
   - Extract unique categories
   - Extract unique barrel types
   - Extract unique ammo types
   - Extract weapons with category relationships
-- [ ] Insert data into core tables (categories, weapons, barrels, ammo_types)
-- [ ] Test end-to-end data flow: JSON → Database
+  - Extract weapon configurations and damage dropoffs
+  - Extract weapon ammo statistics
+- [x] Insert data into all tables
+- [x] Test end-to-end data flow: JSON → Database
 
 ### 1.6 Minimal Client Implementation ✅
 

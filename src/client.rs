@@ -1,8 +1,7 @@
 //! Stats client for querying weapon data
 
-use sqlx::PgPool;
 use tracing::{info, debug};
-use crate::{Result, StatsError};
+use crate::Result;
 use crate::models::{DatabaseConfig, Weapon};
 use crate::database::DatabaseManager;
 
