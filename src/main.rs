@@ -21,27 +21,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize database (schema + data)
+    /// Initialize database (reset schema and populate with data)
     Init {
-        /// Force reinitialize even if database exists
+        /// Skip confirmation prompt
         #[arg(short, long)]
         force: bool,
         
         /// Path to weapons JSON file
         #[arg(short = 'i', long, default_value = "weapons.json")]
         file: String,
-    },
-    /// Clear all data from database (keep schema)
-    Clear {
-        /// Force clear without confirmation
-        #[arg(short, long)]
-        force: bool,
-    },
-    /// Reset database (drop and recreate everything)
-    Reset {
-        /// Force reset without confirmation
-        #[arg(short, long)]
-        force: bool,
     },
     /// Run demo queries to showcase client functionality
     Demo,
@@ -141,16 +129,27 @@ async fn main() -> Result<()> {
         Commands::Init { force, file } => {
             info!("Initializing database...");
             
+            if !force {
+                println!("This will completely reset the database and reload all data.");
+                println!("ALL EXISTING DATA WILL BE PERMANENTLY LOST!");
+                print!("Are you sure you want to continue? (y/N): ");
+                use std::io::{self, Write};
+                io::stdout().flush().unwrap();
+                
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+                
+                if input.trim().to_lowercase() != "y" && input.trim().to_lowercase() != "yes" {
+                    println!("Operation cancelled.");
+                    return Ok(());
+                }
+            }
+            
             let client = StatsClient::new().await?;
             let db_manager = client.database_manager();
             
-            if force {
-                info!("Force flag enabled - will reset database");
-                db_manager.reset_database().await?;
-            } else {
-                info!("Creating database schema...");
-                db_manager.create_schema().await?;
-            }
+            info!("Resetting database schema...");
+            db_manager.reset_database().await?;
             
             info!("Populating data from JSON file: {}", file);
             db_manager.populate_from_json(&file).await?;
@@ -158,7 +157,7 @@ async fn main() -> Result<()> {
             // Show validation report
             let report = db_manager.validate_data().await?;
             
-            println!("✓ Database initialized successfully");
+            println!("✓ Database reset and initialized successfully");
             println!("✓ Schema created");
             println!("✓ Data populated from {}", file);
             
@@ -175,57 +174,6 @@ async fn main() -> Result<()> {
             for (table, count) in &report.table_counts {
                 println!("  {}: {}", table, count);
             }
-            
-            Ok(())
-        }
-        Commands::Clear { force } => {
-            info!("Clearing database data...");
-            
-            if !force {
-                println!("This will delete all data from the database.");
-                print!("Are you sure you want to continue? (y/N): ");
-                use std::io::{self, Write};
-                io::stdout().flush().unwrap();
-                
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
-                
-                if input.trim().to_lowercase() != "y" && input.trim().to_lowercase() != "yes" {
-                    println!("Operation cancelled.");
-                    return Ok(());
-                }
-            }
-            
-            let client = StatsClient::new().await?;
-            client.database_manager().clear_data().await?;
-            
-            println!("✓ All data cleared successfully");
-            
-            Ok(())
-        }
-        Commands::Reset { force } => {
-            info!("Resetting database...");
-            
-            if !force {
-                println!("This will completely drop and recreate the database schema.");
-                println!("ALL DATA WILL BE PERMANENTLY LOST!");
-                print!("Are you sure you want to continue? (y/N): ");
-                use std::io::{self, Write};
-                io::stdout().flush().unwrap();
-                
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
-                
-                if input.trim().to_lowercase() != "y" && input.trim().to_lowercase() != "yes" {
-                    println!("Operation cancelled.");
-                    return Ok(());
-                }
-            }
-            
-            let client = StatsClient::new().await?;
-            client.database_manager().reset_database().await?;
-            
-            println!("✓ Database reset successfully");
             
             Ok(())
         }

@@ -46,11 +46,29 @@ impl DatabaseManager {
         let schema_sql = std::fs::read_to_string("schema.sql")
             .map_err(|e| StatsError::ConfigError(format!("Failed to read schema.sql: {}", e)))?;
 
-        // Execute the schema SQL using raw query (no compile-time validation)
-        sqlx::query(&schema_sql)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| StatsError::QueryFailed(format!("Failed to create schema: {}", e)))?;
+        // Clean up and split the SQL file into individual statements
+        let cleaned_sql = schema_sql
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with("--"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let statements: Vec<&str> = cleaned_sql
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        // Execute each statement individually
+        for (i, statement) in statements.iter().enumerate() {
+            if !statement.is_empty() {
+                debug!("Executing statement {}: {}", i + 1, statement);
+                sqlx::query(statement)
+                    .execute(&self.pool)
+                    .await
+                    .map_err(|e| StatsError::QueryFailed(format!("Failed to execute statement '{}': {}", statement, e)))?;
+            }
+        }
 
         info!("Database schema created successfully");
         Ok(())
