@@ -1,10 +1,10 @@
 //! CLI binary for Battlefield 2042 weapon statistics
 
 use clap::{Parser, Subcommand};
-use tracing::{info, error, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber;
 
-use bf2042_stats::{StatsClient, Result};
+use bf2042_stats::{Result, StatsClient};
 
 #[derive(Parser)]
 #[command(name = "bf2042-stats")]
@@ -26,7 +26,7 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short, long)]
         force: bool,
-        
+
         /// Path to weapons JSON file
         #[arg(short = 'i', long, default_value = "weapons.json")]
         file: String,
@@ -37,6 +37,8 @@ enum Commands {
 
 /// Demonstrate client query functionality with real data
 async fn demo_client_queries() -> Result<()> {
+    use futures::TryStreamExt;
+
     println!("🎯 BF2042 Stats Client Demo");
     println!("==========================");
     println!();
@@ -50,13 +52,16 @@ async fn demo_client_queries() -> Result<()> {
     // Demo 1: List weapons in Assault Rifles category
     println!("🔫 Demo 1: Weapons in Assault Rifles category");
     println!("{}", "-".repeat(45));
-    let weapons = client.weapons_by_category("Assault Rifles").await?;
-    
+    let weapons: Vec<_> = client
+        .weapons_by_category("Assault Rifles")
+        .try_collect()
+        .await?;
+
     if weapons.is_empty() {
         println!("❌ No weapons found in Assault Rifles category");
         return Ok(());
     }
-    
+
     println!("Found {} weapons (showing first 5):", weapons.len());
     for (i, weapon) in weapons.iter().take(5).enumerate() {
         println!("  {}. {}", i + 1, weapon.weapon_name);
@@ -67,13 +72,17 @@ async fn demo_client_queries() -> Result<()> {
     let demo_weapon = &weapons[0];
     println!("🔍 Demo 2: Details for '{}'", demo_weapon.weapon_name);
     println!("{}", "-".repeat(45));
-    
-    let details = client.weapon_details(&demo_weapon.weapon_name).await?;
-    println!("Configurations: {}", details.configurations.len());
-    println!("Ammo types: {}", details.ammo_stats.len());
-    
+
+    let (_weapon, configs_stream, ammo_stream) =
+        client.weapon_details(&demo_weapon.weapon_name).await?;
+    let configurations: Vec<_> = configs_stream.try_collect().await?;
+    let ammo_stats: Vec<_> = ammo_stream.try_collect().await?;
+
+    println!("Configurations: {}", configurations.len());
+    println!("Ammo types: {}", ammo_stats.len());
+
     // Show first ammo type stats
-    if let Some(ammo) = details.ammo_stats.first() {
+    if let Some(ammo) = ammo_stats.first() {
         println!("Sample ammo ({}):", ammo.ammo_type_name);
         println!("  Magazine: {} rounds", ammo.magazine_size);
         println!("  Headshot multiplier: {:.1}x", ammo.headshot_multiplier);
@@ -81,11 +90,17 @@ async fn demo_client_queries() -> Result<()> {
     println!();
 
     // Demo 3: Damage at 100m
-    println!("💥 Demo 3: Damage at 100m for '{}'", demo_weapon.weapon_name);
+    println!(
+        "💥 Demo 3: Damage at 100m for '{}'",
+        demo_weapon.weapon_name
+    );
     println!("{}", "-".repeat(45));
-    
-    let damage_configs = client.damage_at_range(&demo_weapon.weapon_name, 100).await?;
-    
+
+    let damage_configs: Vec<_> = client
+        .damage_at_range(&demo_weapon.weapon_name, 100)
+        .try_collect()
+        .await?;
+
     if damage_configs.is_empty() {
         println!("❌ No damage data at 100m");
     } else {
@@ -100,18 +115,29 @@ async fn demo_client_queries() -> Result<()> {
     // Demo 4: Top 3 configurations in category at 29m
     println!("🏆 Demo 4: Top Assault Rifle configs at 29m");
     println!("{}", "-".repeat(45));
-    
-    let best_configs = client.best_configs_in_category("Assault Rifles", 29, 20).await?;
-    
+
+    let best_configs: Vec<_> = client
+        .best_configs_in_category("Assault Rifles", 29, 20)
+        .try_collect()
+        .await?;
+
     for (i, config) in best_configs.iter().enumerate() {
-        println!("  {}. {} ({} + {})", 
-            i + 1, config.weapon_name, config.barrel_name, config.ammo_type_name);
-        println!("     {} damage, {} rounds", config.damage, config.magazine_size);
+        println!(
+            "  {}. {} ({} + {})",
+            i + 1,
+            config.weapon_name,
+            config.barrel_name,
+            config.ammo_type_name
+        );
+        println!(
+            "     {} damage, {} rounds",
+            config.damage, config.magazine_size
+        );
     }
-    
+
     println!();
     println!("✅ Demo completed - all queries successful!");
-    
+
     Ok(())
 }
 
@@ -120,47 +146,49 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Initialize logging
-    let level = if cli.verbose { Level::DEBUG } else { Level::INFO };
-    tracing_subscriber::fmt()
-        .with_max_level(level)
-        .init();
+    let level = if cli.verbose {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
+    tracing_subscriber::fmt().with_max_level(level).init();
 
     match cli.command {
         Commands::Init { force, file } => {
             info!("Initializing database...");
-            
+
             if !force {
                 println!("This will completely reset the database and reload all data.");
                 println!("ALL EXISTING DATA WILL BE PERMANENTLY LOST!");
                 print!("Are you sure you want to continue? (y/N): ");
                 use std::io::{self, Write};
                 io::stdout().flush().unwrap();
-                
+
                 let mut input = String::new();
                 io::stdin().read_line(&mut input).unwrap();
-                
+
                 if input.trim().to_lowercase() != "y" && input.trim().to_lowercase() != "yes" {
                     println!("Operation cancelled.");
                     return Ok(());
                 }
             }
-            
+
             let client = StatsClient::new().await?;
             let db_manager = client.database_manager();
-            
+
             info!("Resetting database schema...");
             db_manager.reset_database().await?;
-            
+
             info!("Populating data from JSON file: {}", file);
             db_manager.populate_from_json(&file).await?;
-            
+
             // Show validation report
             let report = db_manager.validate_data().await?;
-            
+
             println!("✓ Database reset and initialized successfully");
             println!("✓ Schema created");
             println!("✓ Data populated from {}", file);
-            
+
             if report.is_valid {
                 println!("✓ Data integrity: OK");
             } else {
@@ -169,17 +197,17 @@ async fn main() -> Result<()> {
                     println!("  - {}", issue);
                 }
             }
-            
+
             println!("\nTable counts:");
             for (table, count) in &report.table_counts {
                 println!("  {}: {}", table, count);
             }
-            
+
             Ok(())
         }
         Commands::Demo => {
             info!("Running demo queries...");
-            
+
             match demo_client_queries().await {
                 Ok(_) => {
                     println!("\n✓ Demo completed successfully!");
@@ -192,7 +220,7 @@ async fn main() -> Result<()> {
                     std::process::exit(1);
                 }
             }
-            
+
             Ok(())
         }
     }

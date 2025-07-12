@@ -8,6 +8,9 @@ pub mod database;
 pub mod error;
 pub mod models;
 
+#[cfg(test)]
+pub mod test_utils;
+
 // Re-export main types for easier usage
 pub use client::StatsClient;
 pub use error::{Result, StatsError};

@@ -1,11 +1,68 @@
 //! Stats client for querying weapon data
 
-use tracing::{info, debug};
-use crate::Result;
-use crate::models::{DatabaseConfig, Weapon, WeaponConfigWithDropoffs, WeaponAmmoStatsWithNames, DamageAtRange, BestConfigInCategory, WeaponDetails};
 use crate::database::DatabaseManager;
+use crate::models::{
+    BestConfigInCategory, DamageAtRange, DatabaseConfig, Weapon, WeaponAmmoStatsWithNames,
+    WeaponConfigWithDropoffs,
+};
+use crate::Result;
+use futures::Stream;
+use futures::TryStreamExt;
+use tracing::{debug, info};
 
-/// Client for querying weapon statistics
+/// Client for querying weapon statistics with streaming API
+///
+/// All methods return streams for memory-efficient processing of large datasets.
+/// Use futures combinators like `try_collect()`, `try_take()`, `try_filter()`
+/// to work with the streams.
+///
+/// # Streaming API Usage Examples
+///
+/// ```rust
+/// use futures::TryStreamExt;
+///
+/// // Example 1: Process weapons one by one with early termination
+/// let mut stream = client.weapons_by_category("assault_rifle");
+/// let mut count = 0;
+/// while let Some(weapon) = stream.try_next().await? {
+///     println!("Processing weapon: {}", weapon.weapon_name);
+///     count += 1;
+///     if count >= 5 {
+///         break; // Stop early, remaining weapons not fetched
+///     }
+/// }
+///
+/// // Example 2: Filter and collect specific weapons
+/// let filtered_weapons: Vec<Weapon> = client
+///     .weapons_by_category("sniper_rifle")
+///     .try_filter(|weapon| futures::future::ready(weapon.weapon_name.contains("SWS")))
+///     .try_collect()
+///     .await?;
+///
+/// // Example 3: Stream weapon configurations and process in batches
+/// let configs: Vec<WeaponConfigWithDropoffs> = client
+///     .weapon_configs("AK-24")
+///     .try_take(10) // Only take first 10 configurations
+///     .try_collect()
+///     .await?;
+///
+/// // Example 4: Use the streaming weapon details API
+/// let (weapon, config_stream, ammo_stream) = client
+///     .weapon_details("M5A3")
+///     .await?;
+///
+/// // Process configurations as they stream
+/// let mut config_stream = std::pin::pin!(config_stream);
+/// while let Some(config) = config_stream.try_next().await? {
+///     println!("Config: {} - {}", config.barrel_name, config.ammo_type_name);
+/// }
+///
+/// // Collect all results if needed
+/// let all_weapons: Vec<Weapon> = client
+///     .weapons_by_category("assault_rifle")
+///     .try_collect()
+///     .await?;
+/// ```
 pub struct StatsClient {
     db_manager: DatabaseManager,
 }
@@ -15,10 +72,10 @@ impl StatsClient {
     pub async fn new() -> Result<Self> {
         let config = DatabaseConfig::from_env()?;
         let db_manager = DatabaseManager::new(&config).await?;
-        
+
         // Test the connection
         db_manager.test_connection().await?;
-        
+
         info!("StatsClient initialized successfully");
         Ok(Self { db_manager })
     }
@@ -27,16 +84,23 @@ impl StatsClient {
     pub async fn with_config(config: &DatabaseConfig) -> Result<Self> {
         let db_manager = DatabaseManager::new(config).await?;
         db_manager.test_connection().await?;
-        
+
         info!("StatsClient initialized with custom config");
         Ok(Self { db_manager })
     }
 
-    /// Get weapons by category (simple version for now)
-    pub async fn weapons_by_category(&self, category_name: &str) -> Result<Vec<Weapon>> {
-        debug!("Querying weapons by category: {}", category_name);
-        
-        let rows = sqlx::query!(
+    /// Get weapons by category
+    pub fn weapons_by_category(
+        &self,
+        category_name: &str,
+    ) -> impl Stream<Item = Result<Weapon>> + '_ {
+        debug!(
+            "Starting streaming query for weapons by category: {}",
+            category_name
+        );
+
+        sqlx::query_as!(
+            Weapon,
             r#"
             SELECT w.weapon_id, w.weapon_name, w.category_id
             FROM weapons w
@@ -46,23 +110,22 @@ impl StatsClient {
             "#,
             category_name
         )
-        .fetch_all(self.db_manager.pool())
-        .await?;
-        
-        let weapons = rows.into_iter().map(|row| Weapon {
-            weapon_id: row.weapon_id,
-            weapon_name: row.weapon_name,
-            category_id: row.category_id,
-        }).collect();
-        
-        Ok(weapons)
+        .fetch(self.db_manager.pool())
+        .map_err(|e| e.into())
     }
 
     /// Get weapon configurations with damage dropoffs
-    pub async fn weapon_configs(&self, weapon_name: &str) -> Result<Vec<WeaponConfigWithDropoffs>> {
-        debug!("Querying weapon configurations for: {}", weapon_name);
-        
-        let rows = sqlx::query!(
+    pub fn weapon_configs(
+        &self,
+        weapon_name: &str,
+    ) -> impl Stream<Item = Result<WeaponConfigWithDropoffs>> + '_ {
+        debug!(
+            "Starting streaming query for weapon configurations: {}",
+            weapon_name
+        );
+
+        sqlx::query_as!(
+            WeaponConfigWithDropoffs,
             r#"
             SELECT
                 c.config_id,
@@ -85,30 +148,22 @@ impl StatsClient {
             "#,
             weapon_name
         )
-        .fetch_all(self.db_manager.pool())
-        .await?;
-        
-        let configs = rows.into_iter().map(|row| WeaponConfigWithDropoffs {
-            config_id: row.config_id,
-            weapon_name: row.weapon_name,
-            barrel_name: row.barrel_name,
-            ammo_type_name: row.ammo_type_name,
-            velocity: row.velocity,
-            rpm_single: row.rpm_single,
-            rpm_burst: row.rpm_burst,
-            rpm_auto: row.rpm_auto,
-            range: row.range,
-            damage: row.damage,
-        }).collect();
-        
-        Ok(configs)
+        .fetch(self.db_manager.pool())
+        .map_err(|e| e.into())
     }
 
     /// Get weapon ammo stats
-    pub async fn weapon_ammo_stats(&self, weapon_name: &str) -> Result<Vec<WeaponAmmoStatsWithNames>> {
-        debug!("Querying weapon ammo stats for: {}", weapon_name);
-        
-        let rows = sqlx::query!(
+    pub fn weapon_ammo_stats(
+        &self,
+        weapon_name: &str,
+    ) -> impl Stream<Item = Result<WeaponAmmoStatsWithNames>> + '_ {
+        debug!(
+            "Starting streaming query for weapon ammo stats: {}",
+            weapon_name
+        );
+
+        sqlx::query_as!(
+            WeaponAmmoStatsWithNames,
             r#"
             SELECT
                 w.weapon_name,
@@ -126,27 +181,24 @@ impl StatsClient {
             "#,
             weapon_name
         )
-        .fetch_all(self.db_manager.pool())
-        .await?;
-        
-        let stats = rows.into_iter().map(|row| WeaponAmmoStatsWithNames {
-            weapon_name: row.weapon_name,
-            ammo_type_name: row.ammo_type_name,
-            magazine_size: row.magazine_size,
-            empty_reload_time: row.empty_reload_time,
-            tactical_reload_time: row.tactical_reload_time,
-            headshot_multiplier: row.headshot_multiplier,
-            pellet_count: row.pellet_count,
-        }).collect();
-        
-        Ok(stats)
+        .fetch(self.db_manager.pool())
+        .map_err(|e| e.into())
     }
 
     /// Get effective damage for weapon configurations at specific range
-    pub async fn damage_at_range(&self, weapon_name: &str, target_range: i16) -> Result<Vec<DamageAtRange>> {
-        debug!("Querying damage at range {} for weapon: {}", target_range, weapon_name);
-        
-        let damages = sqlx::query_as::<_, DamageAtRange>(
+    pub fn damage_at_range(
+        &self,
+        weapon_name: &str,
+        target_range: i16,
+    ) -> impl Stream<Item = Result<DamageAtRange>> + '_ {
+        debug!(
+            "Starting streaming query for damage at range {} for weapon: {}",
+            target_range, weapon_name
+        );
+
+        let weapon_name = weapon_name.to_string();
+        sqlx::query_as!(
+            DamageAtRange,
             r#"
             WITH effective_damage AS (
                 SELECT
@@ -180,20 +232,28 @@ impl StatsClient {
             WHERE w.weapon_name = $1
             ORDER BY ed.damage DESC
             "#,
+            weapon_name,
+            target_range
         )
-        .bind(weapon_name)
-        .bind(target_range)
-        .fetch_all(self.db_manager.pool())
-        .await?;
-        
-        Ok(damages)
+        .fetch(self.db_manager.pool())
+        .map_err(|e| e.into())
     }
 
     /// Get top performing configurations in a category at specific range
-    pub async fn best_configs_in_category(&self, category_name: &str, target_range: i16, limit: i32) -> Result<Vec<BestConfigInCategory>> {
-        debug!("Querying best configs in category {} at range {} (limit: {})", category_name, target_range, limit);
-        
-        let configs = sqlx::query_as::<_, BestConfigInCategory>(
+    pub fn best_configs_in_category(
+        &self,
+        category_name: &str,
+        target_range: i16,
+        limit: i64,
+    ) -> impl Stream<Item = Result<BestConfigInCategory>> + '_ {
+        debug!(
+            "Starting streaming query for best configs in category {} at range {} (limit: {})",
+            category_name, target_range, limit
+        );
+
+        let category_name = category_name.to_string();
+        sqlx::query_as!(
+            BestConfigInCategory,
             r#"
             WITH effective_damage AS (
                 SELECT
@@ -233,44 +293,50 @@ impl StatsClient {
             ORDER BY ed.damage DESC
             LIMIT $3
             "#,
+            category_name,
+            target_range,
+            limit as i64
         )
-        .bind(category_name)
-        .bind(target_range)
-        .bind(limit)
-        .fetch_all(self.db_manager.pool())
-        .await?;
-        
-        Ok(configs)
+        .fetch(self.db_manager.pool())
+        .map_err(|e| e.into())
     }
 
-    /// Get complete weapon information including all configurations and stats
-    pub async fn weapon_details(&self, weapon_name: &str) -> Result<WeaponDetails> {
-        debug!("Querying complete weapon details for: {}", weapon_name);
-        
-        // Get basic weapon info
-        let weapon = sqlx::query_as::<_, Weapon>(
+    /// Get complete weapon information including all configurations and stats with streaming
+    /// This method returns the basic weapon info and streams for configurations and ammo stats
+    pub async fn weapon_details(
+        &self,
+        weapon_name: &str,
+    ) -> Result<(
+        Weapon,
+        impl Stream<Item = Result<WeaponConfigWithDropoffs>> + '_,
+        impl Stream<Item = Result<WeaponAmmoStatsWithNames>> + '_,
+    )> {
+        debug!(
+            "Starting streaming query for complete weapon details: {}",
+            weapon_name
+        );
+
+        // Get basic weapon info first
+        let weapon = sqlx::query_as!(
+            Weapon,
             r#"
             SELECT w.weapon_id, w.weapon_name, w.category_id
             FROM weapons w
             WHERE w.weapon_name = $1
             "#,
+            weapon_name
         )
-        .bind(weapon_name)
         .fetch_optional(self.db_manager.pool())
         .await?
-        .ok_or_else(|| crate::StatsError::QueryFailed(format!("Weapon '{}' not found", weapon_name)))?;
+        .ok_or_else(|| {
+            crate::StatsError::QueryFailed(format!("Weapon '{}' not found", weapon_name))
+        })?;
 
-        // Get configurations with dropoffs
-        let configs = self.weapon_configs(weapon_name).await?;
-        
-        // Get ammo stats
-        let ammo_stats = self.weapon_ammo_stats(weapon_name).await?;
-        
-        Ok(WeaponDetails {
-            weapon,
-            configurations: configs,
-            ammo_stats,
-        })
+        // Return weapon info and streams for configurations and ammo stats
+        let config_stream = self.weapon_configs(weapon_name);
+        let ammo_stream = self.weapon_ammo_stats(weapon_name);
+
+        Ok((weapon, config_stream, ammo_stream))
     }
 
     /// Get a reference to the database manager

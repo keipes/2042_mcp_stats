@@ -1,0 +1,96 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH effective_damage AS (\n                SELECT\n                    c.config_id,\n                    cd.range,\n                    cd.damage,\n                    ROW_NUMBER() OVER (\n                        PARTITION BY c.config_id\n                        ORDER BY cd.range DESC\n                    ) as rn\n                FROM configurations c\n                JOIN config_dropoffs cd ON c.config_id = cd.config_id\n                WHERE cd.range <= $2\n            )\n            SELECT\n                w.weapon_name,\n                b.barrel_name,\n                a.ammo_type_name,\n                ed.range as effective_range,\n                ed.damage,\n                c.velocity,\n                c.rpm_single,\n                c.rpm_burst,\n                c.rpm_auto,\n                was.magazine_size,\n                was.empty_reload_time,\n                was.tactical_reload_time,\n                was.headshot_multiplier\n            FROM weapons w\n            JOIN categories cat ON w.category_id = cat.category_id\n            JOIN configurations c ON w.weapon_id = c.weapon_id\n            JOIN effective_damage ed ON c.config_id = ed.config_id AND ed.rn = 1\n            JOIN barrels b ON c.barrel_id = b.barrel_id\n            JOIN ammo_types a ON c.ammo_id = a.ammo_id\n            LEFT JOIN weapon_ammo_stats was ON (w.weapon_id = was.weapon_id AND a.ammo_id = was.ammo_id)\n            WHERE cat.category_name = $1\n            ORDER BY ed.damage DESC\n            LIMIT $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "weapon_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "barrel_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "ammo_type_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "effective_range",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "damage",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "velocity",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 6,
+        "name": "rpm_single",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "rpm_burst",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 8,
+        "name": "rpm_auto",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 9,
+        "name": "magazine_size",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 10,
+        "name": "empty_reload_time",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "tactical_reload_time",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 12,
+        "name": "headshot_multiplier",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int2",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "27f52794d13254277ec380a6793ad5c631183bfb29db3efc19fdb5d4a8769488"
+}
