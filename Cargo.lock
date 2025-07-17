@@ -108,7 +108,6 @@ name = "bf2042_stats"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dotenvy",
  "futures",
  "rust_decimal",
  "serde",

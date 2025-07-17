@@ -8,7 +8,7 @@ fn test_db_config(test_name: &str) -> DatabaseConfig {
     let test_db_url = env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| format!("postgresql://postgres@localhost:5432/bf2042_stats_test_{}", test_name));
     
-    DatabaseConfig::from_url(test_db_url)
+    DatabaseConfig::new(test_db_url)
 }
 
 /// Setup a clean test database
@@ -16,7 +16,7 @@ async fn setup_test_db(test_name: &str) -> Result<DatabaseManager> {
     let config = test_db_config(test_name);
     
     // Connect to main postgres database to create test database
-    let main_config = DatabaseConfig::from_url("postgresql://postgres@localhost:5432/postgres".to_string());
+    let main_config = DatabaseConfig::new("postgresql://postgres@localhost:5432/postgres".to_string());
     let main_manager = DatabaseManager::new(&main_config).await?;
     
     // Drop test database if it exists and create a new one
@@ -181,21 +181,4 @@ async fn test_embedded_data_population() {
         .expect("Failed to count weapons");
     
     assert!(weapons_count.0 > 0, "Weapons should be populated from embedded data");
-}
-
-#[tokio::test]
-async fn test_config_from_env() {
-    // Test default configuration
-    env::remove_var("DATABASE_URL");
-    let config = DatabaseConfig::from_env().expect("Failed to create config from env");
-    assert!(config.url().contains("postgresql://"));
-    assert!(config.url().contains("localhost:5432"));
-    
-    // Test with custom environment variable
-    env::set_var("DATABASE_URL", "postgresql://custom@localhost:5432/custom_db");
-    let config = DatabaseConfig::from_env().expect("Failed to create config from env");
-    assert_eq!(config.url(), "postgresql://custom@localhost:5432/custom_db");
-    
-    // Clean up
-    env::remove_var("DATABASE_URL");
 }

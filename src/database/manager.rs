@@ -16,11 +16,11 @@ impl DatabaseManager {
         info!("Connecting to database: {}", config.url());
 
         let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(2)
+            .max_connections(config.max_connections)
             .connect(config.url())
             .await?;
 
-        debug!("Database connection established");
+        debug!("Database connection established with max_connections: {}", config.max_connections);
 
         Ok(Self { pool })
     }

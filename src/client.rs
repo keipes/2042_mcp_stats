@@ -8,82 +8,59 @@ use crate::models::{
 use crate::Result;
 use futures::Stream;
 use futures::TryStreamExt;
+use tokio::sync::OnceCell;
 use tracing::{debug, info};
 
-/// Client for querying weapon statistics with streaming API
-///
-/// All methods return streams for memory-efficient processing of large datasets.
-/// Use futures combinators like `try_collect()`, `try_take()`, `try_filter()`
-/// to work with the streams.
-///
-/// # Streaming API Usage Examples
-///
-/// ```rust
-/// use futures::TryStreamExt;
-///
-/// // Example 1: Process weapons one by one with early termination
-/// let mut stream = client.weapons_by_category("assault_rifle");
-/// let mut count = 0;
-/// while let Some(weapon) = stream.try_next().await? {
-///     println!("Processing weapon: {}", weapon.weapon_name);
-///     count += 1;
-///     if count >= 5 {
-///         break; // Stop early, remaining weapons not fetched
-///     }
-/// }
-///
-/// // Example 2: Filter and collect specific weapons
-/// let filtered_weapons: Vec<Weapon> = client
-///     .weapons_by_category("sniper_rifle")
-///     .try_filter(|weapon| futures::future::ready(weapon.weapon_name.contains("SWS")))
-///     .try_collect()
-///     .await?;
-///
-/// // Example 3: Stream weapon configurations and process in batches
-/// let configs: Vec<WeaponConfigWithDropoffs> = client
-///     .weapon_configs("AK-24")
-///     .try_take(10) // Only take first 10 configurations
-///     .try_collect()
-///     .await?;
-///
-/// // Example 4: Use the streaming weapon details API
-/// let (weapon, config_stream, ammo_stream) = client
-///     .weapon_details("M5A3")
-///     .await?;
-///
-/// // Process configurations as they stream
-/// let mut config_stream = std::pin::pin!(config_stream);
-/// while let Some(config) = config_stream.try_next().await? {
-///     println!("Config: {} - {}", config.barrel_name, config.ammo_type_name);
-/// }
-///
-/// // Collect all results if needed
-/// let all_weapons: Vec<Weapon> = client
-///     .weapons_by_category("assault_rifle")
-///     .try_collect()
-///     .await?;
-/// ```
+// Global initialization state to ensure database is only initialized once
+static DB_INITIALIZATION: OnceCell<()> = OnceCell::const_new();
+
+/// Ensure database is initialized exactly once across all client instances
+async fn ensure_database_initialized(db_manager: &DatabaseManager) -> Result<()> {
+    DB_INITIALIZATION.get_or_try_init(|| async {
+        // Check if database has data, initialize if not
+        let has_data = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM weapons LIMIT 1)"
+        )
+        .fetch_one(db_manager.pool())
+        .await?;
+            
+        if !has_data {
+            info!("Database empty, initializing with embedded data");
+            db_manager.create_schema().await?;
+            db_manager.populate_from_embedded_data().await?;
+            info!("Database initialization completed");
+        } else {
+            debug!("Database already has data");
+        }
+        Ok::<(), crate::StatsError>(())
+    }).await.copied().map_err(Into::into)
+}
+
 pub struct StatsClient {
     db_manager: DatabaseManager,
 }
 
 impl StatsClient {
-    /// Create a new stats client
-    pub async fn new() -> Result<Self> {
-        let config = DatabaseConfig::from_env()?;
-        let db_manager = DatabaseManager::new(&config).await?;
+    /// Create a new stats client with explicit database URL
+    pub async fn new(database_url: &str) -> Result<Self> {
+        let config = DatabaseConfig::new(database_url.to_string());
+        Self::with_config(&config).await
+    }
 
-        // Test the connection
-        db_manager.test_connection().await?;
-
-        info!("StatsClient initialized successfully");
-        Ok(Self { db_manager })
+    /// Create a new stats client with database URL and max connections
+    pub async fn new_with_max_connections(database_url: &str, max_connections: u32) -> Result<Self> {
+        let config = DatabaseConfig::new(database_url.to_string())
+            .with_max_connections(max_connections);
+        Self::with_config(&config).await
     }
 
     /// Create a new stats client with custom configuration
     pub async fn with_config(config: &DatabaseConfig) -> Result<Self> {
         let db_manager = DatabaseManager::new(config).await?;
         db_manager.test_connection().await?;
+
+        // Ensure database is initialized (only happens once globally)
+        ensure_database_initialized(&db_manager).await?;
 
         info!("StatsClient initialized with custom config");
         Ok(Self { db_manager })
