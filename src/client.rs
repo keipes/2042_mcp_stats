@@ -41,21 +41,8 @@ pub struct StatsClient {
 }
 
 impl StatsClient {
-    /// Create a new stats client with explicit database URL
-    pub async fn new(database_url: &str) -> Result<Self> {
-        let config = DatabaseConfig::new(database_url.to_string());
-        Self::with_config(&config).await
-    }
-
-    /// Create a new stats client with database URL and max connections
-    pub async fn new_with_max_connections(database_url: &str, max_connections: u32) -> Result<Self> {
-        let config = DatabaseConfig::new(database_url.to_string())
-            .with_max_connections(max_connections);
-        Self::with_config(&config).await
-    }
-
     /// Create a new stats client with custom configuration
-    pub async fn with_config(config: &DatabaseConfig) -> Result<Self> {
+    pub async fn new(config: &DatabaseConfig) -> Result<Self> {
         let db_manager = DatabaseManager::new(config).await?;
         db_manager.test_connection().await?;
 
