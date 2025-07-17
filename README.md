@@ -11,21 +11,21 @@ This project is currently under development following a phased implementation pl
 - Error handling foundation with custom `StatsError` types
 - Database models for weapons, categories, and configurations
 - Database manager with connection handling
-- Basic CLI with `init` and `status` commands
+- Library-only architecture with initialization functions
 - Thread-safe client architecture ready for future implementation
 
 🔄 **Next Up: Phase 1.4-1.7**
 
-- Database schema creation and SQL table definitions
+- Database schema creation and SQL table definitions (✅ **COMPLETED**)
 - JSON data parsing and population logic
 - Basic query implementation
-- End-to-end testing with Docker PostgreSQL
+- End-to-end testing with PostgreSQL
 
 See `PLAN.md` for the complete implementation roadmap.
 
 ---
 
-A Rust library and CLI tool for querying Battlefield 2042 weapon statistics stored in a PostgreSQL database.
+A Rust library for querying Battlefield 2042 weapon statistics stored in a PostgreSQL database.
 
 ## Overview
 
@@ -34,13 +34,13 @@ This project provides:
 - A thread-safe Rust library for querying weapon statistics
 - Streaming query results for efficient data processing
 - Database management utilities for schema migration and data population
-- A CLI tool for database initialization and management
+- Simple initialization functions for database setup
 
 ## Architecture
 
 ### Database
 
-- **Database**: PostgreSQL (containerized)
+- **Database**: PostgreSQL (runs in dev container)
 - **Schema**: Normalized weapon statistics with performance indexes
 - **Data Source**: `weapons.json` containing weapon configurations and damage dropoffs
 - **Migration Strategy**: Drop and recreate database on schema/data changes
@@ -56,39 +56,59 @@ This project provides:
 
 ```toml
 [dependencies]
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "decimal"] }
-tokio = { version = "1.42", features = ["full"] }
-tokio-stream = "0.1"
-futures-util = "0.3"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "rust_decimal"] }
+tokio = { version = "1.46", features = ["full"] }
+futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 thiserror = "2.0"
-clap = { version = "4.5", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 dotenvy = "0.15"
-rust_decimal = { version = "1.36", features = ["serde"] }
-ordered-float = "4.3"
-
-[dev-dependencies]
-testcontainers = "0.23"
-tokio-test = "0.4"
-criterion = "0.6"
-proptest = "1.6"
+rust_decimal = { version = "1.35", features = ["serde"] }
 ```
 
 ## Environment Variables
 
-The library reads database connection parameters from environment variables:
+The library reads database connection from the `DATABASE_URL` environment variable:
 
 ```env
-# Individual components:
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_USER=username
-POSTGRES_PASSWORD=password
-POSTGRES_DB=bf2042_stats
+# Complete database URL:
+DATABASE_URL=postgresql://username:password@host:port/database_name
+
+# Example for dev container:
+DATABASE_URL=postgresql://postgres@localhost:5432/bf2042_stats
+```
+
+If `DATABASE_URL` is not set, the library defaults to:
+`postgresql://postgres@localhost:5432/bf2042_stats`
+
+## Development Setup
+
+This project runs in a VS Code dev container with PostgreSQL pre-configured. To get started:
+
+### Quick Setup
+
+```bash
+# Initialize database schema and populate with embedded data
+cargo run --example initialize_db
+```
+
+This single command will:
+- Connect to the dev container's PostgreSQL instance
+- Create the `bf2042_stats` database if needed
+- Set up the complete schema
+- Populate with weapon data (embedded in the library)
+
+### Manual Database Management
+
+```bash
+# Create database manually (if needed)
+psql -h localhost -U postgres -c "CREATE DATABASE bf2042_stats;"
+
+# Check PostgreSQL status
+pg_isready -h localhost -p 5432 -U postgres
 ```
 
 ## Library Usage
@@ -141,18 +161,49 @@ client.weapon_configs(weapon_name: &str) -> impl Stream<Item = Result<Configurat
 client.weapon_ammo_stats(weapon_name: &str) -> impl Stream<Item = Result<WeaponAmmoStats, StatsError>>
 ```
 
-### Database Management
+### Database Initialization
 
 ```rust
-use bf2042_stats::database::{DatabaseManager, Migration};
+use bf2042_stats::{initialize_database, Result};
 
-let db_manager = DatabaseManager::new().await?;
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize database with embedded weapons data (no external file needed)
+    let report = initialize_database().await?;
 
-// Drop existing data and recreate schema
-db_manager.reset_database().await?;
+    if report.is_valid {
+        println!("✓ Database initialized successfully");
+    } else {
+        println!("⚠ Issues found during initialization:");
+        for issue in &report.issues {
+            println!("  - {}", issue);
+        }
+    }
 
-// Populate from weapons.json
-db_manager.populate_from_json("weapons.json").await?;
+    Ok(())
+}
+```
+
+### Custom Configuration
+
+```rust
+use bf2042_stats::{initialize_database_with_config, DatabaseConfig, Result};
+
+let config = DatabaseConfig::from_url(
+    "postgresql://user:pass@localhost:5432/mydb".to_string()
+);
+
+// Using embedded data with custom config
+let report = initialize_database_with_config(&config).await?;
+```
+
+### Schema-Only Creation
+
+```rust
+use bf2042_stats::{create_schema, Result};
+
+// Create tables without populating data
+create_schema().await?;
 ```
 
 ## Error Handling
@@ -181,41 +232,19 @@ pub enum StatsError {
 
 ## CLI Tool
 
-The binary provides database management commands:
+**Note: The CLI tool has been removed. All functionality is now available through the library API.**
 
-### Installation
-
-```bash
-cargo install --path .
-```
-
-### Database Management
+Use the examples in the `examples/` directory to see how to initialize and manage the database:
 
 ```bash
-# Initialize database with schema and data
-bf2042-stats init
+# Initialize database
+cargo run --example initialize_db
 
-# Clear all data
-bf2042-stats clear
+# Create schema only
+cargo run --example create_schema
 
-# Apply schema only
-bf2042-stats schema
-
-# Populate data from JSON
-bf2042-stats populate [--file weapons.json]
-
-# Show database status
-bf2042-stats status
-```
-
-### CLI Examples
-
-```bash
-# Complete database setup
-bf2042-stats init
-
-# Reset and repopulate
-bf2042-stats clear && bf2042-stats schema && bf2042-stats populate
+# Use custom configuration
+cargo run --example custom_config
 ```
 
 ## Data Schema
@@ -234,36 +263,36 @@ See `SCHEMA.md` for detailed schema definition and example queries.
 
 ## Development
 
-### Running with Docker
+### Running Tests
 
 ```bash
-# Start PostgreSQL container
-docker run --name bf2042-postgres \
-  -e POSTGRES_DB=bf2042_stats \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  -d postgres:16
-
-# Set environment variables
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=password
-export POSTGRES_DB=bf2042_stats
-
-# Initialize database
-cargo run --bin bf2042-stats init
-```
-
-### Testing
-
-```bash
-# Run unit tests
+# Run all tests (unit and integration)
 cargo test
 
-# Run integration tests (requires Docker)
-cargo test --features integration-tests
+# Run only integration tests
+cargo test --test integration_tests
+
+# Run with verbose output
+cargo test -- --nocapture
+```
+
+### Database Management
+
+```bash
+# Initialize/reset database with embedded data (recommended)
+cargo run --example initialize_db_embedded
+
+# Initialize/reset database with external JSON file
+cargo run --example initialize_db
+
+# Create schema only (no data)
+cargo run --example create_schema
+
+# Use custom configuration
+cargo run --example custom_config
+
+# Prepare SQLx for offline compilation (if needed)
+cargo sqlx prepare --merged
 ```
 
 ## Performance

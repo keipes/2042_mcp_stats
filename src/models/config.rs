@@ -17,7 +17,7 @@ impl DatabaseConfig {
         dotenvy::dotenv().ok(); // Load .env file if it exists
 
         let url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/bf2042_stats".to_string());
+            .unwrap_or_else(|_| "postgresql://postgres@localhost:5432/bf2042_stats".to_string());
 
         Ok(Self { url })
     }

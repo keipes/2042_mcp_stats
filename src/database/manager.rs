@@ -40,58 +40,122 @@ impl DatabaseManager {
 
     /// Create the database schema
     pub async fn create_schema(&self) -> Result<()> {
-        info!("Creating database schema from schema.sql");
+        info!("Creating database schema");
 
-        // Use psql command to execute the schema file directly
-        // This is more reliable than parsing SQL statements manually
-        let mut output = std::process::Command::new("docker")
-            .args([
-                "exec", "-i", "bf2042_stats_db",
-                "psql", "-U", "postgres", "-d", "bf2042_stats",
-                "-f", "/dev/stdin"
-            ])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| StatsError::ConfigError(format!("Failed to start psql process: {}", e)))?;
+        // Execute schema statements in order
+        let schema_statements = [
+            // Categories table
+            r#"
+            CREATE TABLE IF NOT EXISTS categories (
+                category_id SERIAL PRIMARY KEY,
+                category_name VARCHAR(50) NOT NULL UNIQUE
+            )
+            "#,
+            
+            // Weapons table
+            r#"
+            CREATE TABLE IF NOT EXISTS weapons (
+                weapon_id SERIAL PRIMARY KEY,
+                weapon_name VARCHAR(100) NOT NULL UNIQUE,
+                category_id INTEGER NOT NULL REFERENCES categories(category_id)
+            )
+            "#,
+            
+            // Barrels table
+            r#"
+            CREATE TABLE IF NOT EXISTS barrels (
+                barrel_id SERIAL PRIMARY KEY,
+                barrel_name VARCHAR(100) NOT NULL UNIQUE
+            )
+            "#,
+            
+            // Ammo types table
+            r#"
+            CREATE TABLE IF NOT EXISTS ammo_types (
+                ammo_id SERIAL PRIMARY KEY,
+                ammo_type_name VARCHAR(100) NOT NULL UNIQUE
+            )
+            "#,
+            
+            // Weapon ammo compatibility and stats
+            r#"
+            CREATE TABLE IF NOT EXISTS weapon_ammo_stats (
+                weapon_id INTEGER NOT NULL REFERENCES weapons(weapon_id),
+                ammo_id INTEGER NOT NULL REFERENCES ammo_types(ammo_id),
+                magazine_size SMALLINT NOT NULL,
+                empty_reload_time DECIMAL(4,2),
+                tactical_reload_time DECIMAL(4,2),
+                headshot_multiplier DECIMAL(3,1) NOT NULL,
+                pellet_count SMALLINT DEFAULT 1,
+                PRIMARY KEY (weapon_id, ammo_id)
+            )
+            "#,
+            
+            // Configurations table
+            r#"
+            CREATE TABLE IF NOT EXISTS configurations (
+                config_id SERIAL PRIMARY KEY,
+                weapon_id INTEGER NOT NULL REFERENCES weapons(weapon_id),
+                barrel_id INTEGER NOT NULL REFERENCES barrels(barrel_id),
+                ammo_id INTEGER NOT NULL REFERENCES ammo_types(ammo_id),
+                velocity SMALLINT NOT NULL,
+                rpm_single SMALLINT,
+                rpm_burst SMALLINT,
+                rpm_auto SMALLINT,
+                UNIQUE(weapon_id, barrel_id, ammo_id)
+            )
+            "#,
+            
+            // Damage dropoff data
+            r#"
+            CREATE TABLE IF NOT EXISTS config_dropoffs (
+                config_id INTEGER NOT NULL REFERENCES configurations(config_id),
+                range SMALLINT NOT NULL,
+                damage DECIMAL(5,1) NOT NULL,
+                PRIMARY KEY (config_id, range)
+            )
+            "#,
+        ];
 
-        // Read schema file and pipe it to psql
-        let schema_sql = std::fs::read_to_string("schema.sql")
-            .map_err(|e| StatsError::ConfigError(format!("Failed to read schema.sql: {}", e)))?;
-
-        if let Some(mut stdin) = output.stdin.take() {
-            use std::io::Write;
-            stdin.write_all(schema_sql.as_bytes())
-                .map_err(|e| StatsError::ConfigError(format!("Failed to write to psql stdin: {}", e)))?;
+        // Execute schema creation statements
+        for statement in &schema_statements {
+            sqlx::query(statement).execute(&self.pool).await?;
         }
 
-        let result = output.wait_with_output()
-            .map_err(|e| StatsError::ConfigError(format!("Failed to execute psql: {}", e)))?;
+        // Create indexes
+        let index_statements = [
+            "CREATE INDEX IF NOT EXISTS idx_weapons_category ON weapons(category_id)",
+            "CREATE INDEX IF NOT EXISTS idx_configurations_weapon ON configurations(weapon_id)",
+            "CREATE INDEX IF NOT EXISTS idx_config_dropoffs_config ON config_dropoffs(config_id)",
+            "CREATE INDEX IF NOT EXISTS idx_config_dropoffs_range ON config_dropoffs(range)",
+            "CREATE INDEX IF NOT EXISTS idx_weapon_ammo_stats_weapon ON weapon_ammo_stats(weapon_id)",
+        ];
 
-        if !result.status.success() {
-            let stderr = String::from_utf8_lossy(&result.stderr);
-            return Err(StatsError::QueryFailed(format!("Failed to create schema via psql: {}", stderr)));
+        for statement in &index_statements {
+            sqlx::query(statement).execute(&self.pool).await?;
         }
 
-        info!("Database schema created successfully via psql");
+        info!("Database schema created successfully");
         Ok(())
     }
 
-    /// Populate database from JSON
-    pub async fn populate_from_json(&self, json_path: &str) -> Result<()> {
+    /// Populate database from embedded weapons data
+    pub async fn populate_from_embedded_data(&self) -> Result<()> {
+        info!("Populating database from embedded weapons data");
+        
+        // Use embedded weapons.json data
+        const WEAPONS_JSON: &str = include_str!("../../weapons.json");
+        
+        self.populate_from_json_str(WEAPONS_JSON).await
+    }
+
+    /// Internal method to populate from JSON string
+    async fn populate_from_json_str(&self, json_content: &str) -> Result<()> {
         use crate::models::WeaponsData;
         use std::collections::{HashMap, HashSet};
 
-        info!("Populating database from JSON: {}", json_path);
-
-        // Read and parse JSON file
-        let json_content = tokio::fs::read_to_string(json_path)
-            .await
-            .map_err(|e| StatsError::IoError(e))?;
-
         let weapons_data: WeaponsData =
-            serde_json::from_str(&json_content).map_err(|e| StatsError::ParseError(e))?;
+            serde_json::from_str(json_content).map_err(|e| StatsError::ParseError(e))?;
 
         debug!(
             "Parsed {} categories from JSON",
@@ -295,36 +359,30 @@ impl DatabaseManager {
     pub async fn reset_database(&self) -> Result<()> {
         info!("Resetting database (drop and recreate schema)");
 
-        // Drop all tables in correct order (reverse dependency order)
-        sqlx::query("DROP TABLE IF EXISTS config_dropoffs CASCADE")
-            .execute(&self.pool)
-            .await?;
+        // Drop all tables and sequences in correct order (reverse dependency order)
+        let drop_statements = [
+            "DROP TABLE IF EXISTS config_dropoffs CASCADE",
+            "DROP TABLE IF EXISTS configurations CASCADE", 
+            "DROP TABLE IF EXISTS weapon_ammo_stats CASCADE",
+            "DROP TABLE IF EXISTS weapons CASCADE",
+            "DROP TABLE IF EXISTS ammo_types CASCADE",
+            "DROP TABLE IF EXISTS barrels CASCADE",
+            "DROP TABLE IF EXISTS categories CASCADE",
+            // Drop sequences explicitly to avoid conflicts
+            "DROP SEQUENCE IF EXISTS categories_category_id_seq CASCADE",
+            "DROP SEQUENCE IF EXISTS weapons_weapon_id_seq CASCADE",
+            "DROP SEQUENCE IF EXISTS barrels_barrel_id_seq CASCADE",
+            "DROP SEQUENCE IF EXISTS ammo_types_ammo_id_seq CASCADE",
+            "DROP SEQUENCE IF EXISTS configurations_config_id_seq CASCADE",
+        ];
 
-        sqlx::query("DROP TABLE IF EXISTS configurations CASCADE")
-            .execute(&self.pool)
-            .await?;
+        for statement in &drop_statements {
+            sqlx::query(statement)
+                .execute(&self.pool)
+                .await?;
+        }
 
-        sqlx::query("DROP TABLE IF EXISTS weapon_ammo_stats CASCADE")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("DROP TABLE IF EXISTS weapons CASCADE")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("DROP TABLE IF EXISTS ammo_types CASCADE")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("DROP TABLE IF EXISTS barrels CASCADE")
-            .execute(&self.pool)
-            .await?;
-
-        sqlx::query("DROP TABLE IF EXISTS categories CASCADE")
-            .execute(&self.pool)
-            .await?;
-
-        info!("All tables dropped successfully");
+        info!("All tables and sequences dropped successfully");
 
         // Recreate schema
         self.create_schema().await?;
