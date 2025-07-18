@@ -1,6 +1,6 @@
 //! Integration tests for the BF2042 Stats library
 
-use bf2042_stats::{models::DatabaseConfig, database::DatabaseManager, Result};
+use bf2042_stats::{models::DatabaseConfig, database::DatabaseManager, StatsClient, Result};
 use std::env;
 
 /// Test database configuration for integration tests
@@ -181,4 +181,16 @@ async fn test_embedded_data_population() {
         .expect("Failed to count weapons");
     
     assert!(weapons_count.0 > 0, "Weapons should be populated from embedded data");
+}
+
+#[tokio::test]
+async fn test_stats_client_creation() {
+    let config = test_db_config("stats_client");
+    
+    // Create a stats client
+    let _client = StatsClient::new(&config).await
+        .expect("Failed to create stats client");
+    
+    // Client should be successfully initialized
+    // This test verifies that the client can be created and database is properly initialized
 }
