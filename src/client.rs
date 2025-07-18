@@ -14,17 +14,38 @@ use tracing::{debug, info};
 // Global initialization state to ensure database is only initialized once
 static DB_INITIALIZATION: OnceCell<()> = OnceCell::const_new();
 
+/// Ensure database exists
+async fn ensure_database_exists(db_manager: &DatabaseManager, database: &str) -> Result<()> {
+    // Check if the database exists
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)")
+        .bind(database)
+        .fetch_one(db_manager.pool())
+        .await?;
+
+    if !exists {
+        // Create the database if it does not exist
+        sqlx::query(&format!("CREATE DATABASE {}", database))
+            .execute(db_manager.pool())
+            .await?;
+        info!("Database '{}' created successfully", database);
+    } else {
+        debug!("Database '{}' already exists", database);
+    }
+    
+    Ok(())
+}
+
 /// Ensure database is initialized exactly once across all client instances
 async fn ensure_database_initialized(db_manager: &DatabaseManager) -> Result<()> {
     DB_INITIALIZATION.get_or_try_init(|| async {
-        // Check if database has data, initialize if not
-        let has_data = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM weapons LIMIT 1)"
+        // Check if weapons table exists, initialize if not
+        let table_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'weapons')"
         )
         .fetch_one(db_manager.pool())
         .await?;
             
-        if !has_data {
+        if !table_exists {
             info!("Database empty, initializing with embedded data");
             db_manager.create_schema().await?;
             db_manager.populate_from_embedded_data().await?;
@@ -43,6 +64,14 @@ pub struct StatsClient {
 impl StatsClient {
     /// Create a new stats client with custom configuration
     pub async fn new(config: &DatabaseConfig) -> Result<Self> {
+        // Administrative connection
+        let postgres_db_url = "postgresql://postgres@localhost:5432/postgres";
+        let pg_config = DatabaseConfig::new(postgres_db_url.to_string());
+        let pg_manager = DatabaseManager::new(&pg_config).await?;
+        pg_manager.test_connection().await?;
+        let database_name = config.url().split('/').last().unwrap_or("2042_stats");
+        ensure_database_exists(&pg_manager, database_name).await?;
+
         let db_manager = DatabaseManager::new(config).await?;
         db_manager.test_connection().await?;
 
