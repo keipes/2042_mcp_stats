@@ -64,12 +64,15 @@ pub struct StatsClient {
 impl StatsClient {
     /// Create a new stats client with custom configuration
     pub async fn new(config: &DatabaseConfig) -> Result<Self> {
+        let database_name = config.url().split('/').last().unwrap_or("2042_stats");
         // Administrative connection
-        let postgres_db_url = "postgresql://postgres@localhost:5432/postgres";
+
+
+        // remove "/${database}" from url if it exists and change to /postgres
+        let postgres_db_url = config.url().replace(&format!("/{}", database_name), "/postgres");
         let pg_config = DatabaseConfig::new(postgres_db_url.to_string());
         let pg_manager = DatabaseManager::new(&pg_config).await?;
         pg_manager.test_connection().await?;
-        let database_name = config.url().split('/').last().unwrap_or("2042_stats");
         ensure_database_exists(&pg_manager, database_name).await?;
 
         let db_manager = DatabaseManager::new(config).await?;
