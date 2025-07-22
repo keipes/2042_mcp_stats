@@ -1,29 +1,30 @@
 //! Weapon-related data structures
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 /// Custom decimal type for precise damage calculations
 /// Represents DECIMAL(5,1) - 4 digits before decimal, 1 after (e.g., 9999.9)
-pub type Damage = rust_decimal::Decimal;
+pub type Damage = f32;
 
 /// Custom decimal type for reload times
 /// Represents DECIMAL(4,2) - 2 digits before decimal, 2 after (e.g., 99.99)
-pub type ReloadTime = rust_decimal::Decimal;
+pub type ReloadTime = f32;
 
 /// Custom decimal type for headshot multiplier
 /// Represents DECIMAL(3,1) - 2 digits before decimal, 1 after (e.g., 99.9)
-pub type HeadshotMultiplier = rust_decimal::Decimal;
+pub type HeadshotMultiplier = f32;
 
 /// Weapon category (categories.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 pub struct Category {
     pub category_id: i32,
     pub category_name: String,
 }
 
 /// Basic weapon information (weapons.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Weapon {
     pub weapon_id: i32,
     pub weapon_name: String,
@@ -31,21 +32,21 @@ pub struct Weapon {
 }
 
 /// Barrel information (barrels.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Barrel {
     pub barrel_id: i32,
     pub barrel_name: String,
 }
 
 /// Ammo type information (ammo_types.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmmoType {
     pub ammo_id: i32,
     pub ammo_type_name: String,
 }
 
 /// Weapon ammo-specific stats (weapon_ammo_stats.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeaponAmmoStats {
     pub weapon_id: i32,
     pub ammo_id: i32,
@@ -57,7 +58,7 @@ pub struct WeaponAmmoStats {
 }
 
 /// Weapon configuration with barrel and ammo (configurations.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     pub config_id: i32,
     pub weapon_id: i32,
@@ -70,7 +71,7 @@ pub struct Configuration {
 }
 
 /// Damage dropoff at specific ranges (config_dropoffs.csv)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigDropoff {
     pub config_id: i32,
     pub range: i16,
@@ -78,7 +79,7 @@ pub struct ConfigDropoff {
 }
 
 /// Combined weapon configuration with dropoffs for streaming
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeaponConfigWithDropoffs {
     pub config_id: i32,
     pub weapon_name: String,
@@ -93,7 +94,7 @@ pub struct WeaponConfigWithDropoffs {
 }
 
 /// Weapon ammo stats with names for streaming
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeaponAmmoStatsWithNames {
     pub weapon_name: String,
     pub ammo_type_name: String,
@@ -105,7 +106,7 @@ pub struct WeaponAmmoStatsWithNames {
 }
 
 /// Complex query result for damage at range
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DamageAtRange {
     pub weapon_name: String,
     pub barrel_name: String,
@@ -119,7 +120,7 @@ pub struct DamageAtRange {
 }
 
 /// Best configuration in category result
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BestConfigInCategory {
     pub weapon_name: String,
     pub barrel_name: String,
